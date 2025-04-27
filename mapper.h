@@ -18,7 +18,8 @@ public:
         }
 
         std::mutex mutex;
-        size_t chunkSize = 1024; // Adjust based on system cache
+        // ***** MAKE CHUNKING DYNAMIC ***** //
+        size_t chunkSize = 1024;
         size_t numThreads = std::thread::hardware_concurrency();
         std::vector<std::thread> threads;
 
