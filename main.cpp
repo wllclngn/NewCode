@@ -31,7 +31,7 @@ int main()
         !FileHandler::validate_directory(outputFolder) ||
         !FileHandler::validate_directory(tempFolder))
     {
-        std::cerr << "❌ Folder validation failed. Exiting." << std::endl;
+        std::cerr << "ERROR: Folder validation failed. Exiting." << std::endl;
         return 1;
     }
 
@@ -44,7 +44,7 @@ int main()
     std::string fileListPath = tempFolder + "/fileNames.txt";
     if (!FileHandler::write_filenames_to_file(inputFolder, fileListPath))
     {
-        std::cerr << "❌ Failed to create file list. Exiting." << std::endl;
+        std::cerr << "ERROR: to create file list. Exiting." << std::endl;
         return 1;
     }
 
@@ -52,7 +52,7 @@ int main()
     std::vector<std::string> fileNames;
     if (!FileHandler::read_file(fileListPath, fileNames))
     {
-        std::cerr << "❌ Failed to read file list. Exiting." << std::endl;
+        std::cerr << "ERROR: to read file list. Exiting." << std::endl;
         return 1;
     }
 
@@ -75,7 +75,7 @@ int main()
     std::vector<std::pair<std::string, int>> mappedData;
     if (!FileHandler::read_mapped_data(mappedFilePath, mappedData))
     {
-        std::cerr << "❌ Failed to read mapped data. Exiting." << std::endl;
+        std::cerr << "ERROR: to read mapped data. Exiting." << std::endl;
         return 1;
     }
 
@@ -86,11 +86,11 @@ int main()
     std::string outputFilePath = outputFolder + "/output.txt";
     if (!FileHandler::write_output(outputFilePath, reducer.get_reduced_data()))
     {
-        std::cerr << "❌ Failed to write output file. Exiting." << std::endl;
+        std::cerr << "ERROR: to write output file. Exiting." << std::endl;
         return 1;
     }
 
-    std::cout << "\n✅ Process complete!" << std::endl;
+    std::cout << "\nProcess complete!" << std::endl;
     std::cout << "  - File List: " << fileListPath << std::endl;
     std::cout << "  - Mapped Data: " << mappedFilePath << std::endl;
     std::cout << "  - Final Output: " << outputFilePath << std::endl;
