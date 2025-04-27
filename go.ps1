@@ -1,104 +1,107 @@
-# PowerShell Script to Compile the MapReduce Project Using g++
+# PowerShell Script to Compile the MapReduce Project Using g++ with Reusable C# Methods
 
-Write-Host "Initiating project build..." -ForegroundColor Cyan
-
-# Ensure g++ is available
-if (-not (Get-Command g++ -ErrorAction SilentlyContinue)) {
-    Write-Host "ERROR: g++ compiler not found. Please install g++ and try again." -ForegroundColor Red
-    exit 1
-}
-
-# Define the source files and output binary
-$sourceFiles = "main.cpp mapper.cpp reducer.cpp utils.cpp logger.cpp error_handler.cpp"
-$outputBinary = "mapReduce.exe"
-
-# Clean up any previous builds
-if (Test-Path $outputBinary) {
-    Write-Host "Cleaning up previous build..." -ForegroundColor Yellow
-    Remove-Item $outputBinary
-}
-
-# Compile the project
-Write-Host "Compiling source files..." -ForegroundColor Cyan
-$compileCommand = "g++ -std=c++17 -o $outputBinary $sourceFiles -pthread"
-Write-Host "Executing: $compileCommand" -ForegroundColor Green
-Invoke-Expression $compileCommand
-
-# Check if the compilation was successful
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "SUCCESS: Build completed. Run the program with .\$outputBinary" -ForegroundColor Green
-} else {
-    Write-Host "ERROR: Build failed. Please check the error messages above for details." -ForegroundColor Red
-    exit 1
-}
-
-
-################### OLD #####################
-
-# PowerShell Script Utilizing Embedded C# and g++ Compilation
-
-# EMBEDDED C# CODE TO FIND BOOST LIBRARY
 Add-Type -TypeDefinition @"
 using System;
 using System.IO;
+using System.Diagnostics;
 
-public class BoostFinder
+public class BuildHelper
 {
-    // Method to search for Boost in common directories
-    public static string FindBoost()
+    // Method to check if a command exists (e.g., g++)
+    public static bool IsCommandAvailable(string command)
     {
-        string[] commonPaths = {
-            @"C:\local\boost_",
-            @"C:\Boost",
-            @"C:\Program Files\Boost"
-        };
-
-        foreach (string basePath in commonPaths)
+        try
         {
-            if (Directory.Exists(basePath))
+            using (Process process = new Process())
             {
-                string[] boostDirs = Directory.GetDirectories(basePath, "boost_*");
-                if (boostDirs.Length > 0)
-                {
-                    return boostDirs[0];
-                }
+                process.StartInfo.FileName = "cmd.exe";
+                process.StartInfo.Arguments = $"/c where {command}";
+                process.StartInfo.RedirectStandardOutput = true;
+                process.StartInfo.UseShellExecute = false;
+                process.StartInfo.CreateNoWindow = true;
+                process.Start();
+                process.WaitForExit();
+                return process.ExitCode == 0;
             }
         }
-        return null;
+        catch
+        {
+            return false;
+        }
+    }
+
+    // Method to clean up old files
+    public static void CleanFile(string filePath)
+    {
+        if (File.Exists(filePath))
+        {
+            File.Delete(filePath);
+        }
+    }
+
+    // Method to execute a shell command
+    public static int ExecuteCommand(string command)
+    {
+        using (Process process = new Process())
+        {
+            process.StartInfo.FileName = "cmd.exe";
+            process.StartInfo.Arguments = $"/c {command}";
+            process.StartInfo.RedirectStandardOutput = true;
+            process.StartInfo.RedirectStandardError = true;
+            process.StartInfo.UseShellExecute = false;
+            process.StartInfo.CreateNoWindow = true;
+
+            process.OutputDataReceived += (sender, args) => { if (args.Data != null) Console.WriteLine(args.Data); };
+            process.ErrorDataReceived += (sender, args) => { if (args.Data != null) Console.Error.WriteLine(args.Data); };
+
+            process.Start();
+            process.BeginOutputReadLine();
+            process.BeginErrorReadLine();
+            process.WaitForExit();
+            return process.ExitCode;
+        }
     }
 }
 "@
 
-# CALL THE C# METHOD TO FIND THE boost LIBRARY
-$boostPath = [BoostFinder]::FindBoost()
+# Start the build process
+Write-Host "Starting the build process..." -ForegroundColor Cyan
 
-if ($null -eq $boostPath) {
-    Write-Host "ERROR: boost Library Not Found!" -ForegroundColor Red
+# Check if g++ is installed
+if (-not [BuildHelper]::IsCommandAvailable("g++")) {
+    Write-Host "ERROR: g++ compiler not found. Please install g++ and try again." -ForegroundColor Red
     exit 1
 }
 
-Write-Host "boost Library Found at: $boostPath" -ForegroundColor Green
+# Define source files and output binary
+$sourceFiles = "main.cpp mapper.cpp reducer.cpp utils.cpp logger.cpp error_handler.cpp"
+$outputBinary = "mapReduce.exe"
+$sharedLibrary = "libMapReduce.dll"
 
-# g++ COMMAND FOR COMPILATION
-$sourceFile = "mapReduce.cpp"
-$outputDLL = "madReduce.dll"
-$boostInclude = "$boostPath"
+# Clean up previous builds
+Write-Host "Cleaning up previous builds..." -ForegroundColor Yellow
+[BuildHelper]::CleanFile($outputBinary)
+[BuildHelper]::CleanFile($sharedLibrary)
 
-# Construct the g++ command
-$gppCommand = @"
-g++ -shared -o $outputDLL $sourceFile -I"$boostInclude"
-"@
-
-Write-Host "Generated g++ Command: " -ForegroundColor Yellow
-Write-Host $gppCommand
-
-# EXECUTE THE G++ COMMAND
-# NOTE: Ensure g++ is available in your PATH
-Write-Host "Compiling C++ Source File..." -ForegroundColor Cyan
-Invoke-Expression $gppCommand
-
-if ($LASTEXITCODE -eq 0) {
-    Write-Host "SUCCESS: DLL created, $outputDLL" -ForegroundColor Green
-} else {
-    Write-Host "ERROR: Check the error messages above." -ForegroundColor Red
+# Compile the shared library (.dll)
+Write-Host "Compiling source files into a shared library (.dll)..." -ForegroundColor Cyan
+$sharedLibraryCommand = "g++ -std=c++17 -shared -fPIC -o $sharedLibrary $sourceFiles -pthread"
+Write-Host "Executing: $sharedLibraryCommand" -ForegroundColor Green
+if ([BuildHelper]::ExecuteCommand($sharedLibraryCommand) -ne 0) {
+    Write-Host "ERROR: Failed to compile the shared library. Exiting." -ForegroundColor Red
+    exit 1
 }
+
+# Compile the executable binary
+Write-Host "Compiling source files into an executable binary..." -ForegroundColor Cyan
+$outputBinaryCommand = "g++ -std=c++17 -o $outputBinary $sourceFiles -pthread"
+Write-Host "Executing: $outputBinaryCommand" -ForegroundColor Green
+if ([BuildHelper]::ExecuteCommand($outputBinaryCommand) -ne 0) {
+    Write-Host "ERROR: Failed to compile the executable binary. Exiting." -ForegroundColor Red
+    exit 1
+}
+
+# Build completed successfully
+Write-Host "Build process completed successfully!" -ForegroundColor Green
+Write-Host "  - Executable Binary: .\$outputBinary" -ForegroundColor Cyan
+Write-Host "  - Shared Library: .\$sharedLibrary" -ForegroundColor Cyan
