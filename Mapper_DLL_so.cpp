@@ -1,4 +1,4 @@
-#include "MapperDLL.h"
+#include "Mapper_DLL_so.h"
 
 bool Mapper::is_valid_char(char c)
 {
@@ -20,7 +20,13 @@ std::string Mapper::clean_word(const std::string &word)
 
 void Mapper::map_words(const std::vector<std::string> &lines, const std::string &tempFolderPath)
 {
+    // Ensure cross-platform path handling
+    #ifdef _WIN32
+    std::string outputPath = tempFolderPath + "\\mapped_temp.txt";
+    #else
     std::string outputPath = tempFolderPath + "/mapped_temp.txt";
+    #endif
+
     std::ofstream temp_out(outputPath);
     if (!temp_out)
     {
