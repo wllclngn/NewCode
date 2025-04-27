@@ -102,6 +102,6 @@ Enter the folder path for the temporary directory for intermediate files: /path/
 
 ## Contributors
 - **Trevon Carter-Josey**
-- **William Clingan**
+- **Will Clingan**
 - **Junior Kabela**
 - **Glen Sherwin**
