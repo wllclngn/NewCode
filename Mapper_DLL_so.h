@@ -1,5 +1,5 @@
-#ifndef MAPPER_DLL_H
-#define MAPPER_DLL_H
+#ifndef MAPPER_DLL_so_H
+#define MAPPER_DLL_so_H
 
 #include <string>
 #include <vector>
@@ -9,14 +9,16 @@
 #include <cctype>
 #include <iostream>
 
-// Export macro for Windows DLLs
-#ifdef _WIN32
-#define DLL_EXPORT __declspec(dllexport)
+// Export macro for Windows DLL_sos and Linux .so
+#if defined(_WIN32) || defined(_WIN64)
+#define DLL_so_EXPORT __declspec(DLL_soexport)
+#elif defined(__linux__) || defined(__unix__)
+#define DLL_so_EXPORT __attribute__((visibility("default")))
 #else
-#define DLL_EXPORT
+#define DLL_so_EXPORT
 #endif
 
-class DLL_EXPORT Mapper
+class DLL_so_EXPORT Mapper
 {
 public:
     static bool is_valid_char(char c);
@@ -29,4 +31,4 @@ private:
     void write_chunk_to_file(std::ofstream &outfile);
 };
 
-#endif // MAPPER_DLL_H
+#endif

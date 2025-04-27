@@ -17,46 +17,18 @@ int main()
     std::cerr << "WELCOME TO MAPREDUCE..." << std::endl;
 
     // Validate Input folder
-    std::string folder_path = validateFolderPath("Input");
+    std::string folder_path = validate_directory("Input");
 
     // Validate Output folder
-    std::string output_folder_path = validateFolderPath("Output");
+    std::string output_folder_path = validate_directory("Output");
 
     // Validate Temporary folder
-    std::string temp_folder_path = validateFolderPath("Temporary");
+    std::string temp_folder_path = validate_directory("Temporary");
 
     std::cout << "Input Folder: " << folder_path << std::endl;
     std::cout << "Output Folder: " << output_folder_path << std::endl;
     std::cout << "Temporary Folder: " << temp_folder_path << std::endl;
 
-    // return 0;
-
-    std::cerr << "WELCOME TO MAPREDUCE..." << std::endl;
-
-    std::string inputPath, outputPath, tempPath;
-
-    // Validate Input folder
-    if (!FolderPathValidator::user_input_directory("Input", inputPath)) {
-        std::cerr << "Input folder validation aborted by user." << std::endl;
-        return 1; // Exit the program gracefully
-    }
-
-    // Validate Output folder
-    if (!FolderPathValidator::user_input_directory("Output", outputPath)) {
-        std::cerr << "Output folder validation aborted by user." << std::endl;
-        return 1; // Exit the program gracefully
-    }
-
-    // Validate Temporary folder
-    if (!FolderPathValidator::user_input_directory("Temporary", tempPath)) {
-        std::cerr << "Temporary folder validation aborted by user." << std::endl;
-        return 1; // Exit the program gracefully
-    }
-
-    // Display the validated folder paths
-    std::cout << "Input Folder: " << inputPath << std::endl;
-    std::cout << "Output Folder: " << outputPath << std::endl;
-    std::cout << "Temporary Folder: " << tempPath << std::endl;
 
     // Proceed with the rest of the program
     std::cout << "\nAll folder paths validated successfully. Proceeding with MapReduce...\n";
