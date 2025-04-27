@@ -31,3 +31,74 @@ if ($LASTEXITCODE -eq 0) {
     Write-Host "ERROR: Build failed. Please check the error messages above for details." -ForegroundColor Red
     exit 1
 }
+
+
+################### OLD #####################
+
+# PowerShell Script Utilizing Embedded C# and g++ Compilation
+
+# EMBEDDED C# CODE TO FIND BOOST LIBRARY
+Add-Type -TypeDefinition @"
+using System;
+using System.IO;
+
+public class BoostFinder
+{
+    // Method to search for Boost in common directories
+    public static string FindBoost()
+    {
+        string[] commonPaths = {
+            @"C:\local\boost_",
+            @"C:\Boost",
+            @"C:\Program Files\Boost"
+        };
+
+        foreach (string basePath in commonPaths)
+        {
+            if (Directory.Exists(basePath))
+            {
+                string[] boostDirs = Directory.GetDirectories(basePath, "boost_*");
+                if (boostDirs.Length > 0)
+                {
+                    return boostDirs[0];
+                }
+            }
+        }
+        return null;
+    }
+}
+"@
+
+# CALL THE C# METHOD TO FIND THE boost LIBRARY
+$boostPath = [BoostFinder]::FindBoost()
+
+if ($null -eq $boostPath) {
+    Write-Host "ERROR: boost Library Not Found!" -ForegroundColor Red
+    exit 1
+}
+
+Write-Host "boost Library Found at: $boostPath" -ForegroundColor Green
+
+# g++ COMMAND FOR COMPILATION
+$sourceFile = "mapReduce.cpp"
+$outputDLL = "madReduce.dll"
+$boostInclude = "$boostPath"
+
+# Construct the g++ command
+$gppCommand = @"
+g++ -shared -o $outputDLL $sourceFile -I"$boostInclude"
+"@
+
+Write-Host "Generated g++ Command: " -ForegroundColor Yellow
+Write-Host $gppCommand
+
+# EXECUTE THE G++ COMMAND
+# NOTE: Ensure g++ is available in your PATH
+Write-Host "Compiling C++ Source File..." -ForegroundColor Cyan
+Invoke-Expression $gppCommand
+
+if ($LASTEXITCODE -eq 0) {
+    Write-Host "SUCCESS: DLL created, $outputDLL" -ForegroundColor Green
+} else {
+    Write-Host "ERROR: Check the error messages above." -ForegroundColor Red
+}
