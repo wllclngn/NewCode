@@ -7,67 +7,6 @@
 
 namespace fs = std::filesystem;
 
-/*
-#include "utils.h"
-#include <filesystem>
-#include <iostream>
-
-namespace fs = std::filesystem;
-
-namespace Utils {
-
-    bool isValidDirectory(const std::string& folderPath) {
-        return fs::exists(folderPath) && fs::is_directory(folderPath);
-    }
-
-    void removeTrailingSlash(std::string& folderPath) {
-        if (!folderPath.empty() && 
-            (folderPath.back() == '/' || folderPath.back() == '\\')) {
-            folderPath.pop_back();
-        }
-    }
-
-    bool getUserInputFolderPath(const std::string& promptMessage, std::string& folderPath) {
-        std::cout << promptMessage;
-        std::getline(std::cin, folderPath);
-
-        if (folderPath.empty()) {
-            std::cerr << "No folder path entered. Exiting." << std::endl;
-            return false;
-        }
-
-        removeTrailingSlash(folderPath);
-
-        if (!isValidDirectory(folderPath)) {
-            std::cerr << "Folder does not exist or is not a directory. Exiting." << std::endl;
-            return false;
-        }
-
-        return true;
-    }
-
-}
-
-///////////////////////////////////////////////////////////////////////////////
-
-#pragma once
-#include <string>
-#include <filesystem>
-
-namespace Utils {
-    bool is_valid_directory(const std::string& path) {
-        return std::filesystem::exists(path) && std::filesystem::is_directory(path);
-    }
-
-    void remove_trailing_slash(std::string& path) {
-        if (!path.empty() && (path.back() == '/' || path.back() == '\\')) {
-            path.pop_back();
-        }
-    }
-}
-
-*/
-
 class FileHandler {
 public:
     // Reads a file and stores its lines in a vector
