@@ -6,7 +6,6 @@
 #include <algorithm>
 #include <cctype>
 #include <string>
-#include <boost/filesystem.hpp>
 #include "fileHandler.h"
 #include "mapper.h"
 #include "reducer.h"
