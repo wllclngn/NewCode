@@ -7,6 +7,7 @@
 #include <mutex>
 #include <thread>
 #include <iostream>
+#include <cstdlib>
 
 class Mapper {
 public:
@@ -18,8 +19,7 @@ public:
         }
 
         std::mutex mutex;
-        // ***** MAKE CHUNKING DYNAMIC ***** //
-        size_t chunkSize = 1024;
+        size_t chunkSize = calculate_dynamic_chunk_size(lines.size());
         size_t numThreads = std::thread::hardware_concurrency();
         std::vector<std::thread> threads;
 
@@ -52,6 +52,18 @@ public:
     }
 
 private:
+    size_t calculate_dynamic_chunk_size(size_t totalSize) {
+        size_t numThreads = std::thread::hardware_concurrency();
+        size_t defaultChunkSize = 1024;
+
+        if (numThreads == 0) {
+            return defaultChunkSize; // Fallback in case hardware_concurrency is not supported
+        }
+
+        size_t chunkSize = totalSize / numThreads;
+        return chunkSize > defaultChunkSize ? chunkSize : defaultChunkSize;
+    }
+
     std::string clean_word(const std::string& word) {
         std::string result;
         for (char c : word) {

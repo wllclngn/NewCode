@@ -5,12 +5,13 @@
 #include <mutex>
 #include <thread>
 #include <iostream>
+#include <cstdlib>
 
 class Reducer {
 public:
     void reduce(const std::vector<std::pair<std::string, int>>& mappedData, std::map<std::string, int>& reducedData) {
         std::mutex mutex;
-        size_t chunkSize = 1024; // Adjust based on system cache
+        size_t chunkSize = calculate_dynamic_chunk_size(mappedData.size());
         size_t numThreads = std::thread::hardware_concurrency();
         std::vector<std::thread> threads;
 
@@ -34,5 +35,18 @@ public:
         for (auto& thread : threads) {
             thread.join();
         }
+    }
+
+private:
+    size_t calculate_dynamic_chunk_size(size_t totalSize) {
+        size_t numThreads = std::thread::hardware_concurrency();
+        size_t defaultChunkSize = 1024;
+
+        if (numThreads == 0) {
+            return defaultChunkSize; // Fallback in case hardware_concurrency is not supported
+        }
+
+        size_t chunkSize = totalSize / numThreads;
+        return chunkSize > defaultChunkSize ? chunkSize : defaultChunkSize;
     }
 };
