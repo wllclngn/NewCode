@@ -159,4 +159,112 @@ public:
         file.close();
         return true;
     }
+
+    
+    static bool create_temp_log_file(const std::string &folder_path, const std::string &logFilePath)
+    {
+
+        // CREATE fileNames.txt FOR FUTURE FUNCTIONAL CALLS
+        std::ofstream logFile(logFilePath);
+        if (!logFile.is_open())
+        {
+            std::cerr << "WARNING: Could not create log file 'fileNames.txt'." << std::endl;
+            return false;
+        }
+
+        std::cout << "LOGFILE PATH: " << logFilePath << std::endl;
+
+        try
+        {
+            for (const auto &entry : fs::directory_iterator(folder_path))
+            {
+                if (entry.is_regular_file())
+                {
+                    const auto &filePath = entry.path();
+                    if (filePath.extension() == ".txt")
+                    {
+                        logFile << filePath.filename().string() << std::endl;
+                        std::cout << "Logged *txt file: " << filePath.filename().string() << std::endl;
+                    }
+                    else
+                    {
+                        std::cout << "Skipping file " << filePath.filename().string()
+                                  << " due to its file type extension: " << filePath.extension().string() << "." << std::endl;
+                    }
+                }
+            }
+            return true;
+        }
+        catch (const fs::filesystem_error &e)
+        {
+            std::cerr << "ERROR: " << e.what() << std::endl;
+            return false;
+        }
+    }
+
+    static bool write_summed_output(const std::string &filename, const std::map<std::string, std::vector<int>> &data) {
+        std::ofstream outfile(filename);
+        if (!outfile) {
+            ErrorHandler::reportError("Could not open file " + filename + " for writing.");
+            return false;
+        }
+        for (const auto &kv : data) {
+            int sum = 0;
+            for (int count : kv.second) {
+                sum += count;
+            }
+            outfile << "<\"" << kv.first << "\", " << sum << ">\n";
+        }
+        outfile.close();
+        return true;
+    }
+
+    static bool read_mapped_data(const std::string &filename, std::vector<std::pair<std::string, int>> &mapped_data) {
+        std::ifstream infile(filename);
+        if (!infile) {
+            ErrorHandler::reportError("Could not open file " + filename + " for reading.");
+            return false;
+        }
+        std::string line;
+        while (std::getline(infile, line)) {
+            std::string word;
+            int count;
+            size_t start = line.find('<');
+            size_t comma = line.find(',', start);
+            size_t end = line.find('>', comma);
+            if (start != std::string::npos && comma != std::string::npos && end != std::string::npos) {
+                word = line.substr(start + 1, comma - start - 1);
+                std::string count_str = line.substr(comma + 1, end - comma - 1);
+                std::stringstream ss(count_str);
+                ss >> count;
+                if (!word.empty()) {
+                    mapped_data.emplace_back(word, count);
+                }
+            }
+        }
+        infile.close();
+        return true;
+    }
+
+    static bool extract_values_from_temp_input(std::vector<std::string> &lines, const std::string &tempFolder) {
+        std::ifstream infile(tempFolder);
+        if (!infile) {
+            ErrorHandler::reportError("Could not open file " + tempFolder + " for reading.");
+            return false;
+        }
+        std::string kv_line;
+        while (std::getline(infile, kv_line)) {
+            size_t quote_pos = kv_line.find("\", \"");
+            if (quote_pos != std::string::npos) {
+                std::string value = kv_line.substr(quote_pos + 4);
+                if (!value.empty() && value.back() == '>')
+                    value.pop_back();
+                if (!value.empty() && value.back() == '"')
+                    value.pop_back();
+                lines.push_back(value);
+            }
+        }
+        infile.close();
+        return true;
+    }
 };
