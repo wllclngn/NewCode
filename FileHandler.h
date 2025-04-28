@@ -33,103 +33,46 @@ public:
         return true;
     }
 
-    static bool validate_directory(std::string &folder_path) {
+    static bool validate_directory(std::string &folder_path, bool create_if_missing = true) {
         Logger &logger = Logger::getInstance();
         std::vector<std::string> directory_history;
         logger.log("Starting directory validation process.");
-
-#ifdef _WIN32
-        // Windows-specific input handling
-        while (true) {
-            if (fs::exists(folder_path) && fs::is_directory(folder_path)) {
+    
+        // Check if the directory exists
+        if (fs::exists(folder_path)) {
+            if (fs::is_directory(folder_path)) {
                 logger.log("Validated directory: " + folder_path);
-                return true; // Valid directory
+                std::cout << "LOG: The directory " << folder_path << " already exists. Proceeding..." << std::endl;
+                return true; // Directory exists and is valid
+            } else {
+                std::cerr << "WARNING: A file with the same name already exists, but it is not a directory." << std::endl;
+                logger.log("ERROR: Path exists but is not a directory: " + folder_path);
+                return false; // Path exists but is not a directory
             }
-
-            // Log the error and prompt the user
-            ErrorHandler::reportError("Directory " + folder_path + " does not exist or is not valid.");
-            logger.log("Invalid directory: " + folder_path);
-
-            std::cout << "Please enter a valid directory path (or type 'EXIT' to quit): ";
-            char ch;
-            folder_path.clear();
-
-            while (true) {
-                ch = _getch();
-                if (ch == '\r') { // Enter key
-                    std::cout << "\n";
-                    break;
-                } else if (ch == '\b' && !folder_path.empty()) { // Backspace
-                    folder_path.pop_back();
-                    std::cout << "\b \b";
-                } else if (isprint(ch)) { // Printable character
-                    folder_path += ch;
-                    std::cout << ch;
-                }
-            }
-
-            if (folder_path == "EXIT") {
-                logger.log("User exited the directory validation process.");
-                std::cout << "Program terminated by user.\n";
-                return false;
-            }
-
-            directory_history.push_back(folder_path);
-            logger.log("User provided new directory path: " + folder_path);
         }
-#else
-        // Unix-like systems with readline support
-        rl_attempted_completion_function = [](const char *text, int start, int end) -> char ** {
-            if (start != 0) return nullptr;
-
-            std::vector<std::string> matches;
+    
+        // Directory does not exist
+        if (create_if_missing) {
             try {
-                for (const auto &entry : fs::directory_iterator(fs::current_path())) {
-                    std::string entry_name = entry.path().filename().string();
-                    if (entry_name.rfind(text, 0) == 0) { // Starts with "text"
-                        matches.push_back(entry.path().string());
-                    }
+                if (fs::create_directory(folder_path)) {
+                    std::cout << "LOG: Directory " << folder_path << " created successfully. Proceeding..." << std::endl;
+                    logger.log("Directory created successfully: " + folder_path);
+                    return true; // Directory created successfully
+                } else {
+                    std::cerr << "WARNING: Failed to create the directory." << std::endl;
+                    logger.log("ERROR: Failed to create directory: " + folder_path);
+                    return false; // Failed to create directory
                 }
             } catch (const fs::filesystem_error &e) {
-                std::cerr << "[ERROR] Filesystem error: " << e.what() << "\n";
+                std::cerr << "ERROR: " << e.what() << std::endl;
+                logger.log("Filesystem error: " + std::string(e.what()));
+                return false; // Filesystem error occurred
             }
-
-            char **completion_list = new char *[matches.size() + 1];
-            for (size_t i = 0; i < matches.size(); ++i) {
-                completion_list[i] = strdup(matches[i].c_str());
-            }
-            completion_list[matches.size()] = nullptr;
-            return completion_list;
-        };
-
-        while (true) {
-            if (fs::exists(folder_path) && fs::is_directory(folder_path)) {
-                logger.log("Validated directory: " + folder_path);
-                return true; // Valid directory
-            }
-
-            ErrorHandler::reportError("Directory " + folder_path + " does not exist or is not valid.");
-            logger.log("Invalid directory: " + folder_path);
-
-            char *input = readline("Please enter a valid directory path (or type 'EXIT' to quit): ");
-            if (!input) {
-                std::cerr << "Error reading input.\n";
-                return false;
-            }
-
-            folder_path = input;
-            free(input);
-
-            if (folder_path == "EXIT") {
-                logger.log("User exited the directory validation process.");
-                std::cout << "Program terminated by user.\n";
-                return false;
-            }
-
-            directory_history.push_back(folder_path);
-            logger.log("User provided new directory path: " + folder_path);
+        } else {
+            std::cout << "ERROR: Directory " << folder_path << " does not exist and creation is disabled." << std::endl;
+            logger.log("Directory does not exist and creation is disabled: " + folder_path);
+            return false; // Directory does not exist and creation is not allowed
         }
-#endif
     }
 
     static bool write_filenames_to_file(const std::string &folder_path, const std::string &output_filename) {
