@@ -1,65 +1,67 @@
 #pragma once
-#include <string>
 #include <vector>
+#include <string>
+#include <map>
+#include <sstream>
 #include <fstream>
+#include <mutex>
+#include <thread>
 #include <iostream>
-#include <filesystem>
+#include <cstdlib>
+#include "utility.h"
 
-namespace fs = std::filesystem;
-
-class FileHandler {
+class Mapper {
 public:
-    // Reads a file and stores its lines in a vector
-    static bool read_file(const std::string &filename, std::vector<std::string> &lines) {
-        std::ifstream file(filename);
-        if (!file) {
-            std::cerr << "Error: Could not open file " << filename << " for reading.\n";
-            return false;
+    void map_words(const std::vector<std::string>& lines, const std::string& outputPath) {
+        std::ofstream temp_out(outputPath);
+        if (!temp_out) {
+            ErrorHandler::reportError("Could not open " + outputPath + " for writing.");
+            return;
         }
-        std::string line;
-        while (std::getline(file, line)) {
-            lines.push_back(line);
+
+        std::mutex mutex;
+        size_t chunkSize = calculate_dynamic_chunk_size(lines.size());
+        size_t numThreads = std::thread::hardware_concurrency();
+        std::vector<std::thread> threads;
+
+        for (size_t i = 0; i < numThreads; ++i) {
+            threads.emplace_back([this, &lines, &temp_out, &mutex, i, chunkSize]() {
+                size_t startIdx = i * chunkSize;
+                size_t endIdx = std::min(startIdx + chunkSize, lines.size());
+                std::map<std::string, int> localMap;
+
+                for (size_t j = startIdx; j < endIdx; ++j) {
+                    std::istringstream ss(lines[j]);
+                    std::string word;
+                    while (ss >> word) {
+                        localMap[Utility::clean_word(word)]++;
+                    }
+                }
+
+                std::lock_guard<std::mutex> lock(mutex);
+                for (const auto& kv : localMap) {
+                    temp_out << kv.first << ": " << kv.second << "\n";
+                }
+            });
         }
-        file.close();
-        return true;
+
+        for (auto& thread : threads) {
+            thread.join();
+        }
+
+        temp_out.close();
     }
 
-    // Validates input directory existence
-    static bool validate_directory(const std::string &folder_path) {
-        if (!fs::exists(folder_path) || !fs::is_directory(folder_path)) {
-            std::cerr << "Error: Directory " << folder_path << " does not exist or is not valid.\n";
-            return false;
-        }
-        return true;
-    }
+private:
+    size_t calculate_dynamic_chunk_size(size_t totalSize) {
+        size_t numThreads = std::thread::hardware_concurrency();
+        size_t defaultChunkSize = 1024;
 
-    // Writes filenames in a directory to a specified output file
-    static bool write_filenames_to_file(const std::string &folder_path, const std::string &output_filename) {
-        std::ofstream outfile(output_filename);
-        if (!outfile) {
-            std::cerr << "Error: Could not open " << output_filename << " for writing.\n";
-            return false;
+        if (numThreads == 0) {
+            return defaultChunkSize;
         }
-        for (const auto &entry : fs::directory_iterator(folder_path)) {
-            if (entry.is_regular_file()) {
-                outfile << entry.path().filename().string() << "\n";
-            }
-        }
-        outfile.close();
-        return true;
-    }
 
-    // Writes key-value pairs to an output file
-    static bool write_output(const std::string &filename, const std::map<std::string, int> &data) {
-        std::ofstream file(filename);
-        if (!file) {
-            std::cerr << "Error: Could not open file " << filename << " for writing.\n";
-            return false;
-        }
-        for (const auto &kv : data) {
-            file << kv.first << ": " << kv.second << "\n";
-        }
-        file.close();
-        return true;
+        size_t chunkSize = totalSize / numThreads;
+        return chunkSize > defaultChunkSize ? chunkSize : defaultChunkSize;
     }
 };

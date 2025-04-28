@@ -6,6 +6,7 @@
 #include <thread>
 #include <iostream>
 #include <cstdlib>
+#include "utility.h"
 
 class Reducer {
 public:
@@ -25,9 +26,11 @@ public:
                     localReduce[mappedData[j].first] += mappedData[j].second;
                 }
 
-                std::lock_guard<std::mutex> lock(mutex);
-                for (const auto& kv : localReduce) {
-                    reducedData[kv.first] += kv.second;
+                {
+                    std::lock_guard<std::mutex> lock(mutex); // Ensure thread-safe access to shared data
+                    for (const auto& kv : localReduce) {
+                        reducedData[kv.first] += kv.second;
+                    }
                 }
             });
         }
