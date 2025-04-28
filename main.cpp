@@ -24,9 +24,7 @@ int main()
 
     std::string folder_path = validateFolderPath("Input");
     if (!output_folder_path.empty() && (output_folder_path.back() == '/' || output_folder_path.back() == '\\'))
-    {
         output_folder_path.pop_back();
-    }
 
     // Validate Output folder    
     std::string output_folder_path;
@@ -35,18 +33,14 @@ int main()
 
     std::string output_folder_path = validateFolderPath("Output");
     if (!output_folder_path.empty() && (output_folder_path.back() == '/' || output_folder_path.back() == '\\'))
-    {
         output_folder_path.pop_back();
-    }
 
     // Validate Temporary folder    std::string temp_folder_path;
     std::cout << "Enter the folder path for the temporary directory for intermediate files: ";
     std::getline(std::cin, temp_folder_path);
     std::string temp_folder_path = validateFolderPath("Temporary");
     if (!output_folder_path.empty() && (output_folder_path.back() == '/' || output_folder_path.back() == '\\'))
-    {
         output_folder_path.pop_back();
-    }
 
     // Display the validated folder paths
     std::cout << "Input Folder: " << folder_path << std::endl;
@@ -56,8 +50,19 @@ int main()
     // Proceed with the rest of the program
     std::cout << "\nAll folder paths validated successfully. Proceeding with MapReduce...\n";
 
+    // Check if the string contains '/' or '\'
+    std::string SysPathSlash;
+
+    if (temp_folder_path.find('/') != std::string::npos) {
+        SysPathSlash = "/"; // Assign "/" to SysPathSlash
+        std::cout << "The string contains '/'. Assigned '/' to SysPathSlash." << std::endl;
+    } else if (temp_folder_path.find('\\') != std::string::npos) {
+        SysPathSlash = "\\"; // Assign "\" to SysPathSlash
+        std::cout << "The string contains '\\'. Assigned '\\' to SysPathSlash." << std::endl;
+    }
+
     // Prepare file paths
-    std::string file_list_path = temp_folder_path + "/fileNames.txt";
+    std::string file_list_path = temp_folder_path + SysPathSlash + "fileNames.txt";
 
     // Handle input directory and create temp files
     if (!FileHandler::create_temp_log_file(folder_path, file_list_path) ||
