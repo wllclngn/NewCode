@@ -6,7 +6,6 @@
 #include <thread>
 #include <iostream>
 #include <cstdlib>
-#include "utility.h"
 
 class Reducer {
 public:
