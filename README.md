@@ -139,7 +139,7 @@ cd tests
 
 ---
 
-## Advanced Features
+## Future Features
 
 ### Dynamic Thread Pool (Planned)
 Future versions plan to implement a dynamic thread pool for enhanced thread management.
@@ -149,24 +149,9 @@ Support for distributed processing using MPI or ZeroMQ is under consideration.
 
 ---
 
-## Contributing
-
-1. Fork the repository.
-2. Create a new branch for your feature or bug fix.
-3. Commit your changes with clear and concise messages.
-4. Submit a pull request to the `main` branch.
-
----
-
 ## License
 
 This project is licensed under the MIT License. See `LICENSE` for details.
-
----
-
-## Support
-
-For questions or issues, feel free to open a GitHub issue or contact the maintainer at `<your-email@example.com>`.
 
 ---
 
@@ -194,9 +179,3 @@ word1: 45
 word2: 30
 word3: 15
 ```
-
---- 
-
-## Changelog
-
-See the [CHANGELOG.md](CHANGELOG.md) file for the full history of changes.
