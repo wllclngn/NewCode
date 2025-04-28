@@ -8,7 +8,7 @@
 #include "Logger.h"
 
 /*
-// CALLS FOR IF 
+// CALLS FOR IF DYNAMIC VALIDATE DIRECTORY IS USED
 #ifdef _WIN32
 #include <windows.h>
 #include <conio.h>
