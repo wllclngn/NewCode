@@ -6,6 +6,14 @@ This project showcases a modern implementation of the **MapReduce** programming 
 
 ---
 
+## Contributors
+- **Trevon Carter-Josey**
+- **Will Clingan**
+- **Junior Kabela**
+- **Glen Sherwin**
+
+---
+
 ## Features
 
 - **Multi-threaded Processing**: Efficient parallelism using `std::thread` and `std::mutex` for both mappers and reducers.
@@ -192,11 +200,3 @@ word3: 15
 ## Changelog
 
 See the [CHANGELOG.md](CHANGELOG.md) file for the full history of changes.
-
----
-
-## Contributors
-- **Trevon Carter-Josey**
-- **Will Clingan**
-- **Junior Kabela**
-- **Glen Sherwin**
