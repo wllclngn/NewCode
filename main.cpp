@@ -6,7 +6,9 @@
 #include <algorithm>
 #include <cctype>
 #include <string>
+#include "ERROR_Handler.h"
 #include "FileHandler.h"
+#include "Logger.h"
 #include "Mapper.h"
 #include "Reducer.h"
 
