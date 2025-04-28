@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project showcases a modern implementation of the **MapReduce** programming model in C++. It is designed for scalable and efficient parallel processing of large datasets by splitting the computation into **mapping** and **reducing** phases. The implementation incorporates multi-threading, error handling, and cross-platform compatibility.
+This project showcases a modern implementation of the **MapReduce** programming model in C++. It is designed for scalable and efficient parallel processing of large datasets by splitting the computations.
 
 ---
 
@@ -41,7 +41,7 @@ This project showcases a modern implementation of the **MapReduce** programming 
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/<your-org-or-username>/mapreduce-cpp.git
+git clone https://github.com/CSE687-SPRING-2025/MapReduce.git
 cd mapreduce-cpp
 ```
 
