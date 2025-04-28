@@ -14,21 +14,30 @@ public:
         return instance;
     }
 
+    void configureLogFilePath(const std::string& path) {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (logFile_.is_open()) {
+            logFile_.close();
+        }
+        logFile_.open(path, std::ios::app);
+        if (!logFile_) {
+            std::cerr << "[ERROR] Could not open log file for writing: " << path << std::endl;
+        }
+    }
+
     void log(const std::string& message) {
         std::lock_guard<std::mutex> lock(mutex_);
+        if (!logFile_.is_open()) {
+            std::cerr << "[ERROR] Log file is not configured or could not be opened." << std::endl;
+            return;
+        }
         std::string timestamp = getTimestamp();
         logFile_ << "[" << timestamp << "] " << message << std::endl;
         std::cout << "[" << timestamp << "] " << message << std::endl;
     }
 
 private:
-    Logger() {
-        logFile_.open("application.log", std::ios::app);
-        if (!logFile_) {
-            std::cerr << "[ERROR] Could not open log file for writing." << std::endl;
-        }
-    }
-
+    Logger() {}
     ~Logger() {
         if (logFile_.is_open()) {
             logFile_.close();
