@@ -181,35 +181,6 @@ public:
     }
         */
 
-    static bool write_filenames_to_file(const std::string &folder_path, const std::string &output_filename) {
-        std::ofstream outfile(output_filename);
-        if (!outfile) {
-            ErrorHandler::reportError("Could not open " + output_filename + " for writing.");
-            return false;
-        }
-        for (const auto &entry : fs::directory_iterator(folder_path)) {
-            if (entry.is_regular_file()) {
-                outfile << entry.path().filename().string() << "\n";
-            }
-        }
-        outfile.close();
-        return true;
-    }
-
-    static bool write_output(const std::string &filename, const std::map<std::string, int> &data) {
-        std::ofstream file(filename);
-        if (!file) {
-            ErrorHandler::reportError("Could not open file " + filename + " for writing.");
-            return false;
-        }
-        for (const auto &kv : data) {
-            file << kv.first << ": " << kv.second << "\n";
-        }
-        file.close();
-        return true;
-    }
-
-    
     static bool create_temp_log_file(const std::string &folder_path, const std::string &logFilePath)
     {
 
@@ -238,7 +209,7 @@ public:
                     else
                     {
                         std::cout << "Skipping file " << filePath.filename().string()
-                                  << " due to its file type extension: " << filePath.extension().string() << "." << std::endl;
+                                    << " due to its file type extension: " << filePath.extension().string() << "." << std::endl;
                     }
                 }
             }
@@ -249,6 +220,34 @@ public:
             std::cerr << "ERROR: " << e.what() << std::endl;
             return false;
         }
+    }
+
+    static bool write_filenames_to_file(const std::string &folder_path, const std::string &output_filename) {
+        std::ofstream outfile(output_filename);
+        if (!outfile) {
+            ErrorHandler::reportError("Could not open " + output_filename + " for writing.");
+            return false;
+        }
+        for (const auto &entry : fs::directory_iterator(folder_path)) {
+            if (entry.is_regular_file()) {
+                outfile << entry.path().filename().string() << "\n";
+            }
+        }
+        outfile.close();
+        return true;
+    }
+
+    static bool write_output(const std::string &filename, const std::map<std::string, int> &data) {
+        std::ofstream file(filename);
+        if (!file) {
+            ErrorHandler::reportError("Could not open file " + filename + " for writing.");
+            return false;
+        }
+        for (const auto &kv : data) {
+            file << kv.first << ": " << kv.second << "\n";
+        }
+        file.close();
+        return true;
     }
 
     static bool write_summed_output(const std::string &filename, const std::map<std::string, std::vector<int>> &data) {
