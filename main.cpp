@@ -1,4 +1,5 @@
 #include <iostream>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 #include <map>
@@ -12,7 +13,7 @@
 #include "Mapper.h"
 #include "Reducer.h"
 
-namespace fs = boost::filesystem;
+namespace fs = std::filesystem;
 
 int main()
 { 
@@ -25,7 +26,10 @@ int main()
     std::cout << "Enter the folder path for the directory to be processed: ";
     std::getline(std::cin, folder_path);
 
-    std::string folder_path = validateFolderPath("Input");
+    if (!FileHandler::validate_directory(folder_path)) {
+        Logger::getInstance().log("Invalid output folder path. Exiting.");
+        return 1;
+    }
     if (!folder_path.empty() && (folder_path.back() == '/' || folder_path.back() == '\\'))
         folder_path.pop_back();
 
@@ -42,6 +46,7 @@ int main()
         output_folder_path.pop_back();
 
     // Validate Temporary folder    std::string temp_folder_path;
+    std::string temp_folder_path;
     std::cout << "Enter the folder path for the temporary directory for intermediate files: ";
     std::getline(std::cin, temp_folder_path);
     if (!FileHandler::validate_directory(temp_folder_path)) {

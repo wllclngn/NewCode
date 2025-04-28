@@ -38,7 +38,7 @@ public:
                     std::istringstream ss(lines[j]);
                     std::string word;
                     while (ss >> word) {
-                        localMap[Utility::clean_word(word)]++;
+                        localMap[MapperDLLso::clean_word(word)]++;
                     }
                 }
 
