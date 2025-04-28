@@ -8,6 +8,11 @@
 #include <thread>
 #include <iostream>
 #include <cstdlib>
+#include "ERROR_Handler.h"
+#include "FileHandler.h"
+#include "Mapper_DLL_so.h"
+#include "Mapper.h"
+#include "Reducer.h"
 
 class Mapper {
 public:
