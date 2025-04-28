@@ -8,13 +8,14 @@
 #include <thread>
 #include <iostream>
 #include <cstdlib>
+#include "utility.h"
 
 class Mapper {
 public:
     void map_words(const std::vector<std::string>& lines, const std::string& outputPath) {
         std::ofstream temp_out(outputPath);
         if (!temp_out) {
-            std::cerr << "Error: Could not open " << outputPath << " for writing.\n";
+            ErrorHandler::reportError("Could not open " + outputPath + " for writing.");
             return;
         }
 
@@ -33,7 +34,7 @@ public:
                     std::istringstream ss(lines[j]);
                     std::string word;
                     while (ss >> word) {
-                        localMap[clean_word(word)]++;
+                        localMap[Utility::clean_word(word)]++;
                     }
                 }
 
@@ -57,20 +58,10 @@ private:
         size_t defaultChunkSize = 1024;
 
         if (numThreads == 0) {
-            return defaultChunkSize; // Fallback in case hardware_concurrency is not supported
+            return defaultChunkSize;
         }
 
         size_t chunkSize = totalSize / numThreads;
         return chunkSize > defaultChunkSize ? chunkSize : defaultChunkSize;
-    }
-
-    std::string clean_word(const std::string& word) {
-        std::string result;
-        for (char c : word) {
-            if (std::isalnum(static_cast<unsigned char>(c))) {
-                result += std::tolower(static_cast<unsigned char>(c));
-            }
-        }
-        return result;
     }
 };
