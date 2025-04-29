@@ -20,11 +20,15 @@
 
 class DLL_so_EXPORT MapperDLLso {
 public:
-    static bool is_valid_char(char c) {
+    virtual ~MapperDLLso() {} // Virtual destructor for polymorphism
+
+    // Virtual function for character validation
+    virtual bool is_valid_char(char c) const {
         return std::isalnum(static_cast<unsigned char>(c));
     }
 
-    static std::string clean_word(const std::string &word) {
+    // Virtual function for cleaning words
+    virtual std::string clean_word(const std::string &word) const {
         std::string result;
         for (char c : word) {
             if (is_valid_char(c)) {
@@ -34,7 +38,8 @@ public:
         return result;
     }
 
-    void map_words(const std::vector<std::string> &lines, const std::string &tempFolderPath) {
+    // Virtual function for mapping words
+    virtual void map_words(const std::vector<std::string> &lines, const std::string &tempFolderPath) {
         // Ensure cross-platform path handling
         #ifdef _WIN32
         std::string outputPath = tempFolderPath + "\\mapped_temp.txt";
@@ -73,14 +78,16 @@ public:
         std::cout << "Mapping complete. Data written to " << outputPath << std::endl;
     }
 
-private:
-    std::vector<std::pair<std::string, int>> mapped;
-
-    void write_chunk_to_file(std::ofstream &outfile) {
+protected:
+    // Virtual function for writing a chunk of data to a file
+    virtual void write_chunk_to_file(std::ofstream &outfile) const {
         for (const auto &kv : mapped) {
             outfile << "<" << kv.first << ", " << kv.second << ">" << std::endl;
         }
     }
+
+    // Protected member to allow derived classes to access the mapped data
+    mutable std::vector<std::pair<std::string, int>> mapped;
 };
 
 #endif
