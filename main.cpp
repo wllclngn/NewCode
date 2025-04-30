@@ -91,13 +91,19 @@ int main()
 
     // Write outputs
     std::string output_file_path = output_folder_path + "/output.txt";
-    if (!FileHandler::write_output(output_file_path, reducer.get_reduced_data())) {
+    if (!FileHandler::write_output(output_file_path, reduced_data)) {
         Logger::getInstance().log("ERROR: Failed to write output file. Exiting.\n");
         return 1;
     }
 
+    // Transform reducedData to match the expected format of write_summed_output
+    std::map<std::string, std::vector<int>> transformed_data;
+    for (const auto &entry : reduced_data) {
+        transformed_data[entry.first] = {entry.second};
+    }
+
     std::string summed_output_path = output_folder_path + "/output_summed.txt";
-    if (!FileHandler::write_summed_output(summed_output_path, reducer.get_reduced_data())) {
+    if (!FileHandler::write_summed_output(summed_output_path, transformed_data)) {
         Logger::getInstance().log("ERROR: Failed to write summed output file. Exiting.\n");
         return 1;
     }
