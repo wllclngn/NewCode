@@ -85,8 +85,9 @@ int main()
         return 1;
     }
 
+    std::map<std::string, int> reduced_data;
     Reducer reducer;
-    reducer.reduce(mapped_data);
+    reducer.reduce(mapped_data, reduced_data);
 
     // Write outputs
     std::string output_file_path = output_folder_path + "/output.txt";
