@@ -1,4 +1,5 @@
 #pragma once
+
 #include <vector>
 #include <string>
 #include <map>
@@ -14,84 +15,12 @@
 #include "ERROR_Handler.h"
 #include "FileHandler.h"
 #include "Mapper_DLL_so.h"
-#include "Mapper.h"
-#include "Reducer.h"
-
-class ThreadPool {
-public:
-    ThreadPool(size_t minThreads, size_t maxThreads)
-        : minThreads(minThreads), maxThreads(maxThreads), stopFlag(false) {
-        for (size_t i = 0; i < minThreads; ++i) {
-            addThread();
-        }
-    }
-
-    ~ThreadPool() {
-        shutdown();
-    }
-
-    void enqueueTask(const std::function<void()>& task) {
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            taskQueue.push(task);
-        }
-        condition.notify_one();
-        adjustThreadPool();
-    }
-
-    void shutdown() {
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            stopFlag = true;
-        }
-        condition.notify_all();
-        for (std::thread& thread : threads) {
-            if (thread.joinable()) {
-                thread.join();
-            }
-        }
-    }
-
-private:
-    void addThread() {
-        threads.emplace_back([this]() {
-            while (true) {
-                std::function<void()> task;
-                {
-                    std::unique_lock<std::mutex> lock(queueMutex);
-                    condition.wait(lock, [this]() {
-                        return stopFlag || !taskQueue.empty();
-                    });
-                    if (stopFlag && taskQueue.empty()) {
-                        return;
-                    }
-                    task = std::move(taskQueue.front());
-                    taskQueue.pop();
-                }
-                task();
-            }
-        });
-    }
-
-    void adjustThreadPool() {
-        if (taskQueue.size() > threads.size() && threads.size() < maxThreads) {
-            addThread();
-        }
-    }
-
-    std::vector<std::thread> threads;
-    std::queue<std::function<void()>> taskQueue;
-    std::mutex queueMutex;
-    std::condition_variable condition;
-    bool stopFlag;
-    size_t minThreads;
-    size_t maxThreads;
-};
+#include "ThreadPool.h"
 
 class Mapper {
 public:
     Mapper(size_t minThreads = 2, size_t maxThreads = 8)
-        : threadPool(minThreads, maxThreads) {}
+        : threadPool(std::make_unique<ThreadPool>(minThreads, maxThreads)) {}
 
     void map_words(const std::vector<std::string>& lines, const std::string& outputPath) {
         std::ofstream temp_out(outputPath);
@@ -104,7 +33,7 @@ public:
         size_t chunkSize = calculate_dynamic_chunk_size(lines.size());
 
         for (size_t i = 0; i < lines.size(); i += chunkSize) {
-            threadPool.enqueueTask([this, &lines, &temp_out, &mutex, i, chunkSize]() {
+            threadPool->enqueueTask([this, &lines, &temp_out, &mutex, i, chunkSize]() {
                 size_t startIdx = i;
                 size_t endIdx = std::min(startIdx + chunkSize, lines.size());
                 std::map<std::string, int> localMap;
@@ -113,7 +42,8 @@ public:
                     std::istringstream ss(lines[j]);
                     std::string word;
                     while (ss >> word) {
-                        localMap[MapperDLLso::clean_word(word)]++;
+                        MapperDLLso mapperDLL;
+                        localMap[mapperDLL.clean_word(word)]++;
                     }
                 }
 
@@ -124,7 +54,7 @@ public:
             });
         }
 
-        threadPool.shutdown();
+        threadPool->shutdown();
         temp_out.close();
     }
 
@@ -141,5 +71,5 @@ private:
         return chunkSize > defaultChunkSize ? chunkSize : defaultChunkSize;
     }
 
-    ThreadPool threadPool;
+    std::unique_ptr<ThreadPoolBase> threadPool;
 };
