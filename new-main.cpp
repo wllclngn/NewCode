@@ -23,10 +23,11 @@ int main()
 
     // Validate Input folder
     std::string folder_path;
+    std::vector<std::string> input_file_paths;
     std::cout << "Enter the folder path for the directory to be processed: ";
     std::getline(std::cin, folder_path);
 
-    if (!FileHandler::validate_directory(folder_path)) {
+    if (!FileHandler::validate_directory(folder_path, input_file_paths)) {
         Logger::getInstance().log("Invalid input folder path. Exiting.");
         return 1;
     }
@@ -35,10 +36,11 @@ int main()
 
     // Validate Output folder
     std::string output_folder_path;
+    std::vector<std::string> output_file_paths;
     std::cout << "Enter the folder path for the output directory: ";
     std::getline(std::cin, output_folder_path);
 
-    if (!FileHandler::validate_directory(output_folder_path)) {
+    if (!FileHandler::validate_directory(output_folder_path, output_file_paths)) {
         Logger::getInstance().log("Invalid output folder path. Exiting.");
         return 1;
     }
@@ -47,9 +49,11 @@ int main()
 
     // Validate Temporary folder
     std::string temp_folder_path;
+    std::vector<std::string> temp_file_paths;
     std::cout << "Enter the folder path for the temporary directory for intermediate files: ";
     std::getline(std::cin, temp_folder_path);
-    if (!FileHandler::validate_directory(temp_folder_path)) {
+    
+    if (!FileHandler::validate_directory(temp_folder_path, temp_file_paths)) {
         Logger::getInstance().log("Invalid temporary folder path. Exiting.");
         return 1;
     }
@@ -64,16 +68,9 @@ int main()
     // Proceed with the rest of the program
     std::cout << "\nAll folder paths validated successfully. Proceeding with MapReduce...\n";
 
-    // Get file paths
-    std::vector<std::string> file_paths;
-    if (!FileHandler::get_file_paths(folder_path, file_paths)) {
-        Logger::getInstance().log("ERROR: Failed to get file paths. Exiting.\n");
-        return 1;
-    }
-
     // Map phase
     std::vector<std::string> extracted_lines;
-    for (const auto &file_path : file_paths) {
+    for (const auto &file_path : input_file_paths) {
         FileHandler::read_file(file_path, extracted_lines);
     }
 
