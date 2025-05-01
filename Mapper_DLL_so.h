@@ -27,14 +27,22 @@ public:
         return std::isalnum(static_cast<unsigned char>(c));
     }
 
-    // Virtual function for cleaning words
     virtual std::string clean_word(const std::string &word) const {
         std::string result;
+
+        // Iterate through each character in the word
         for (char c : word) {
             if (is_valid_char(c)) {
                 result += std::tolower(static_cast<unsigned char>(c));
             }
         }
+
+        // Allow words of any length that are not purely numeric
+        if (result.empty() || std::all_of(result.begin(), result.end(), ::isdigit)) {
+            Logger::getInstance().log("Invalid word ignored: " + word);
+            return "";
+        }
+
         return result;
     }
 
