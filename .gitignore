@@ -1,0 +1,15 @@
+# Ignore all .so files
+*.so
+
+# Ignore all .dll files
+*.dll
+
+# Ignore macOS dylib output files
+*.dylib
+
+# Ignore the "MapReduce" compile file
+MapReduce
+
+# Ignore specific folders
+tempFolder/
+outputFolder/
