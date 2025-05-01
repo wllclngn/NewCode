@@ -39,7 +39,7 @@ public:
 
         // Allow words of any length that are not purely numeric
         if (result.empty() || std::all_of(result.begin(), result.end(), ::isdigit)) {
-            Logger::getInstance().log("Invalid word ignored: " + word);
+            //Logger::getInstance().log("Invalid word ignored: " + word);
             return "";
         }
 

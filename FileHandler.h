@@ -29,7 +29,7 @@ public:
         Logger &logger = Logger::getInstance();
         std::vector<std::string> directory_history;
         logger.log("Starting directory validation process.");
-    
+
         // Check if the directory exists
         if (fs::exists(folder_path)) {
             if (fs::is_directory(folder_path)) {
@@ -40,7 +40,13 @@ public:
                 try {
                     for (const auto &entry : fs::directory_iterator(folder_path)) {
                         if (entry.is_regular_file()) {
-                            file_paths.push_back(entry.path().string());
+                            std::string file_path = entry.path().string();
+                            // Only include .txt files
+                            if (entry.path().extension() == ".txt") {
+                                file_paths.push_back(file_path);
+                            } else {
+                                logger.log("Skipped non-txt file: " + file_path);
+                            }
                         }
                     }
                     logger.log("File paths successfully retrieved from directory: " + folder_path);
@@ -56,7 +62,7 @@ public:
                 return false; // Path exists but is not a directory
             }
         }
-    
+
         // Directory does not exist
         if (create_if_missing) {
             try {
@@ -80,6 +86,7 @@ public:
             return false; // Directory does not exist and creation is not allowed
         }
     }
+
 
     static bool write_filenames_to_file(const std::string &folder_path, const std::string &output_filename) {
         std::ofstream outfile(output_filename);
@@ -120,6 +127,7 @@ public:
             for (int count : kv.second) {
                 sum += count;
             }
+            std::cout << "ENTRY, write_summed_output: " << kv.first << "." << std::endl;
             outfile << "<\"" << kv.first << "\", " << sum << ">\n";
         }
         outfile.close();
