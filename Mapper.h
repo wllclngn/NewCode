@@ -22,22 +22,41 @@ public:
     Mapper(size_t minThreads = 2, size_t maxThreads = 8)
         : threadPool(std::make_unique<ThreadPool>(minThreads, maxThreads)) {}
 
-    void map_words(const std::vector<std::string>& lines, const std::string& outputPath) {
+    void map_words(const std::vector<std::string>& lines, const std::string& tempFolderPath) {
+        // Ensure the temporary folder path is valid
+        if (!fs::exists(tempFolderPath)) {
+            ErrorHandler::reportError("Temporary folder does not exist: " + tempFolderPath);
+            return;
+        }
+        if (!fs::is_directory(tempFolderPath)) {
+            ErrorHandler::reportError("Temporary folder is not a directory: " + tempFolderPath);
+            return;
+        }
+
+        // Construct the output path for mapped_temp.txt
+        std::string outputPath = tempFolderPath + "/mapped_temp.txt";
+
+        // Open the output file for writing
         std::ofstream temp_out(outputPath);
         if (!temp_out) {
             ErrorHandler::reportError("Could not open " + outputPath + " for writing.");
             return;
         }
 
-        std::mutex mutex;
+        // Mutex for synchronizing file writes
+        std::mutex file_mutex;
+
+        // Calculate the optimal chunk size for processing
         size_t chunkSize = calculate_dynamic_chunk_size(lines.size());
 
+        // Process lines in parallel using the thread pool
         for (size_t i = 0; i < lines.size(); i += chunkSize) {
-            threadPool->enqueueTask([this, &lines, &temp_out, &mutex, i, chunkSize]() {
+            threadPool->enqueueTask([this, &lines, &temp_out, &file_mutex, i, chunkSize]() {
                 size_t startIdx = i;
                 size_t endIdx = std::min(startIdx + chunkSize, lines.size());
                 std::map<std::string, int> localMap;
 
+                // Perform local mapping
                 for (size_t j = startIdx; j < endIdx; ++j) {
                     std::istringstream ss(lines[j]);
                     std::string word;
@@ -47,14 +66,20 @@ public:
                     }
                 }
 
-                std::lock_guard<std::mutex> lock(mutex);
-                for (const auto& kv : localMap) {
-                    temp_out << kv.first << ": " << kv.second << "\n";
+                // Write the local map to the output file with synchronization
+                {
+                    std::lock_guard<std::mutex> lock(file_mutex);
+                    for (const auto& kv : localMap) {
+                        temp_out << kv.first << ": " << kv.second << "\n";
+                    }
                 }
             });
         }
 
+        // Wait for all threads to finish
         threadPool->shutdown();
+
+        // Close the output file
         temp_out.close();
     }
 

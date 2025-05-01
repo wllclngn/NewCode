@@ -127,11 +127,21 @@ public:
     }
 
     static bool read_mapped_data(const std::string &filename, std::vector<std::pair<std::string, int>> &mapped_data) {
+        // Check if the file exists
         std::ifstream infile(filename);
         if (!infile) {
-            ErrorHandler::reportError("Could not open file " + filename + " for reading.");
-            return false;
+            // File does not exist, create an empty file
+            std::ofstream outfile(filename);
+            if (!outfile) {
+                ErrorHandler::reportError("Could not create file " + filename + ".");
+                return false;
+            }
+            outfile.close();
+            Logger::getInstance().log("INFO: Created an empty file: " + filename);
+            return true; // Return true since the file is now created
         }
+
+        // File exists, proceed with reading
         std::string line;
         while (std::getline(infile, line)) {
             std::string word;
