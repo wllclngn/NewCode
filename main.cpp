@@ -47,6 +47,12 @@ int main()
     if (!output_folder_path.empty() && (output_folder_path.back() == '/' || output_folder_path.back() == '\\'))
         output_folder_path.pop_back();
 
+    // Ensure the output directory exists
+    if (!fs::exists(output_folder_path)) {
+        Logger::getInstance().log("Output directory does not exist. Creating it...");
+        fs::create_directories(output_folder_path);
+    }
+
     // Validate Temporary folder
     std::string temp_folder_path;
     std::vector<std::string> temp_file_paths;
@@ -80,14 +86,24 @@ int main()
     // Reduce phase
     std::vector<std::pair<std::string, int>> mapped_data;
     std::string mapped_file_path = temp_folder_path + "/mapped_temp.txt";
+
+
     if (!FileHandler::read_mapped_data(mapped_file_path, mapped_data)) {
         Logger::getInstance().log("ERROR: Failed to read mapped data. Exiting.\n");
         return 1;
     }
 
+    if (mapped_data.empty()) {
+        Logger::getInstance().log("WARNING: mapped_data is empty. Output file will be empty.");
+    }
+
     std::map<std::string, int> reduced_data;
     Reducer reducer;
     reducer.reduce(mapped_data, reduced_data);
+
+    if (reduced_data.empty()) {
+        Logger::getInstance().log("WARNING: reduced_data is empty. Output file will be empty.");
+    }
 
     // Write outputs
     std::string output_file_path = output_folder_path + "/output.txt";
@@ -109,10 +125,10 @@ int main()
     }
 
     // Display results
-    Logger::getInstance().log("\n Process complete!\n");
-    Logger::getInstance().log("  Mapped data: mapped_temp.txt\n");
-    Logger::getInstance().log("\n  Word counts: output.txt\n");
-    Logger::getInstance().log("\n Summed counts: output_summed.txt\n");
+    Logger::getInstance().log("Process complete!");
+    Logger::getInstance().log("Mapped data: mapped_temp.txt");
+    Logger::getInstance().log("Word counts: output.txt");
+    Logger::getInstance().log("Summed counts: output_summed.txt");
 
     return 0;
 }

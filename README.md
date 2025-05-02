@@ -23,6 +23,7 @@ This project showcases a modern implementation of the **MapReduce** programming 
 - **Centralized Error Handling**: A dedicated `ErrorHandler` class for consistent error management.
 - **Unit Testing**: A built-in testing framework and integration tests for ensuring code quality.
 - **Build Automation**: Cross-platform build scripts (`go.sh` and `go.ps1`) and CMake support.
+- **Performance Testing**: Includes performance benchmarks to measure the efficiency of the MapReduce pipeline.
 
 ---
 
@@ -41,8 +42,8 @@ This project showcases a modern implementation of the **MapReduce** programming 
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/CSE687-SPRING-2025/MapReduce.git
-cd mapreduce-cpp
+git clone https://github.com/wllclngn/NewCode.git
+cd NewCode
 ```
 
 ### Build Instructions
@@ -92,7 +93,7 @@ mapreduce <input_directory> <output_directory>
 ## Project Structure
 
 ```
-mapreduce-cpp/
+NewCode/
 ├── src/
 │   ├── Mapper.cpp
 │   ├── Reducer.cpp
@@ -110,15 +111,16 @@ mapreduce-cpp/
 │   ├── TEST_mapper.cpp
 │   ├── TEST_reducer.cpp
 │   ├── TEST_integration.cpp
+│   ├── TEST_performance.cpp
 │   └── TEST_Test_Framework.h
 ├── scripts/
 │   ├── go.sh
 │   ├── go.ps1
 │   ├── TEST_BASH_MapReduce.sh
 │   └── TEST_PowerShell_MapReduce.ps1
-├── CMakeLists.txt
+├── CHANGELOG.md
 ├── README.md
-└── CHANGELOG.md
+└── CMakeLists.txt
 ```
 
 ---
@@ -152,6 +154,12 @@ Support for distributed processing using MPI or ZeroMQ is under consideration.
 ## License
 
 This project is licensed under the MIT License. See `LICENSE` for details.
+
+---
+
+## Changelog
+
+Refer to the `CHANGELOG.md` file for updates and changes to the project.
 
 ---
 
