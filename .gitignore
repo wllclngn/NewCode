@@ -3,6 +3,11 @@
 
 # Ignore all .dll files
 *.dll
+*.lib
+*.exp
+*.obj
+*.txt
+*.exe
 
 # Ignore macOS dylib output files
 *.dylib
@@ -15,4 +20,5 @@ MapReduce
 
 # Ignore specific folders
 tempFolder/
+interFolder/
 outputFolder/
