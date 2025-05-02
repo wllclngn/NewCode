@@ -27,7 +27,6 @@ public:
 
     static bool validate_directory(std::string &folder_path, std::vector<std::string> &file_paths, bool create_if_missing = true) {
         Logger &logger = Logger::getInstance();
-        std::vector<std::string> directory_history;
         logger.log("Starting directory validation process.");
 
         // Check if the directory exists
@@ -41,7 +40,6 @@ public:
                     for (const auto &entry : fs::directory_iterator(folder_path)) {
                         if (entry.is_regular_file()) {
                             std::string file_path = entry.path().string();
-                            // Only include .txt files
                             if (entry.path().extension() == ".txt") {
                                 file_paths.push_back(file_path);
                             } else {
@@ -55,11 +53,10 @@ public:
                     return false;
                 }
 
-                return true; // Directory exists and is valid
+                return true;
             } else {
-                std::cerr << "WARNING: A file with the same name already exists, but it is not a directory." << std::endl;
                 logger.log("ERROR: Path exists but is not a directory: " + folder_path);
-                return false; // Path exists but is not a directory
+                return false;
             }
         }
 
@@ -67,46 +64,30 @@ public:
         if (create_if_missing) {
             try {
                 if (fs::create_directory(folder_path)) {
-                    std::cout << "LOG: Directory " << folder_path << " created successfully. Proceeding..." << std::endl;
                     logger.log("Directory created successfully: " + folder_path);
-                    return true; // Directory created successfully
+                    return true;
                 } else {
-                    std::cerr << "WARNING: Failed to create the directory." << std::endl;
                     logger.log("ERROR: Failed to create directory: " + folder_path);
-                    return false; // Failed to create directory
+                    return false;
                 }
             } catch (const fs::filesystem_error &e) {
-                std::cerr << "ERROR: " << e.what() << std::endl;
                 logger.log("Filesystem error: " + std::string(e.what()));
-                return false; // Filesystem error occurred
+                return false;
             }
         } else {
-            std::cout << "ERROR: Directory " << folder_path << " does not exist and creation is disabled." << std::endl;
             logger.log("Directory does not exist and creation is disabled: " + folder_path);
-            return false; // Directory does not exist and creation is not allowed
-        }
-    }
-
-
-    static bool write_filenames_to_file(const std::string &folder_path, const std::string &output_filename) {
-        std::ofstream outfile(output_filename);
-        if (!outfile) {
-            ErrorHandler::reportError("Could not open " + output_filename + " for writing.");
             return false;
         }
-        for (const auto &entry : fs::directory_iterator(folder_path)) {
-            if (entry.is_regular_file()) {
-                outfile << entry.path().filename().string() << "\n";
-            }
-        }
-        outfile.close();
-        return true;
     }
 
     static bool write_output(const std::string &filename, const std::map<std::string, int> &data) {
+        if (data.empty()) {
+            Logger::getInstance().log("WARNING: Data is empty. Output file will be empty.");
+        }
+
         std::ofstream file(filename);
         if (!file) {
-            ErrorHandler::reportError("Could not open file " + filename + " for writing.");
+            ErrorHandler::reportError("Could not open file " + filename + " for writing. Check permissions or directory existence.");
             return false;
         }
         for (const auto &kv : data) {
@@ -117,9 +98,13 @@ public:
     }
 
     static bool write_summed_output(const std::string &filename, const std::map<std::string, std::vector<int>> &data) {
+        if (data.empty()) {
+            Logger::getInstance().log("WARNING: Data is empty. Output file will be empty.");
+        }
+
         std::ofstream outfile(filename);
         if (!outfile) {
-            ErrorHandler::reportError("Could not open file " + filename + " for writing.");
+            ErrorHandler::reportError("Could not open file " + filename + " for writing. Check permissions or directory existence.");
             return false;
         }
         for (const auto &kv : data) {
@@ -127,7 +112,10 @@ public:
             for (int count : kv.second) {
                 sum += count;
             }
+
+#ifdef DEBUG
             std::cout << "ENTRY, write_summed_output: " << kv.first << "." << std::endl;
+#endif
             outfile << "<\"" << kv.first << "\", " << sum << ">\n";
         }
         outfile.close();
@@ -135,61 +123,59 @@ public:
     }
 
     static bool read_mapped_data(const std::string &filename, std::vector<std::pair<std::string, int>> &mapped_data) {
-        // Check if the file exists
+        Logger::getInstance().log("Attempting to read mapped data from file: " + filename);
+    
         std::ifstream infile(filename);
         if (!infile) {
-            // File does not exist, create an empty file
-            std::ofstream outfile(filename);
-            if (!outfile) {
-                ErrorHandler::reportError("Could not create file " + filename + ".");
-                return false;
-            }
-            outfile.close();
-            Logger::getInstance().log("INFO: Created an empty file: " + filename);
-            return true; // Return true since the file is now created
-        }
-
-        // File exists, proceed with reading
-        std::string line;
-        while (std::getline(infile, line)) {
-            std::string word;
-            int count;
-            size_t start = line.find('<');
-            size_t comma = line.find(',', start);
-            size_t end = line.find('>', comma);
-            if (start != std::string::npos && comma != std::string::npos && end != std::string::npos) {
-                word = line.substr(start + 1, comma - start - 1);
-                std::string count_str = line.substr(comma + 1, end - comma - 1);
-                std::stringstream ss(count_str);
-                ss >> count;
-                if (!word.empty()) {
-                    mapped_data.emplace_back(word, count);
-                }
-            }
-        }
-        infile.close();
-        return true;
-    }
-
-    static bool extract_values_from_temp_input(std::vector<std::string> &lines, const std::string &tempFolder) {
-        std::ifstream infile(tempFolder);
-        if (!infile) {
-            ErrorHandler::reportError("Could not open file " + tempFolder + " for reading.");
+            ErrorHandler::reportError("Could not open file " + filename + " for reading.");
             return false;
         }
-        std::string kv_line;
-        while (std::getline(infile, kv_line)) {
-            size_t quote_pos = kv_line.find("\", \"");
-            if (quote_pos != std::string::npos) {
-                std::string value = kv_line.substr(quote_pos + 4);
-                if (!value.empty() && value.back() == '>')
-                    value.pop_back();
-                if (!value.empty() && value.back() == '"')
-                    value.pop_back();
-                lines.push_back(value);
+    
+        std::string line;
+        int line_number = 0;
+        while (std::getline(infile, line)) {
+            line_number++;
+            //Logger::getInstance().log("Processing line " + std::to_string(line_number) + ": " + line);
+    
+            // Parse the line in `word: count` format
+            size_t colon = line.find(':');
+            if (colon != std::string::npos) {
+                try {
+                    std::string word = line.substr(0, colon);
+                    std::string count_str = line.substr(colon + 1);
+    
+                    // Trim whitespace from word and count
+                    word.erase(0, word.find_first_not_of(" \t"));
+                    word.erase(word.find_last_not_of(" \t") + 1);
+                    count_str.erase(0, count_str.find_first_not_of(" \t"));
+                    count_str.erase(count_str.find_last_not_of(" \t") + 1);
+    
+                    int count = 0;
+                    std::stringstream ss(count_str);
+                    ss >> count;
+    
+                    if (!word.empty() && !ss.fail()) {
+                        //Logger::getInstance().log("Parsed entry: " + word + " -> " + std::to_string(count));
+                        mapped_data.emplace_back(word, count);
+                    } else {
+                        //Logger::getInstance().log("WARNING: Invalid data on line " + std::to_string(line_number) + ": " + line);
+                    }
+                } catch (const std::exception &e) {
+                    Logger::getInstance().log("ERROR: Exception while processing line " + std::to_string(line_number) + ": " + line + ". Exception: " + e.what());
+                }
+            } else {
+                Logger::getInstance().log("WARNING: Skipped malformed line " + std::to_string(line_number) + ": " + line);
             }
         }
+    
         infile.close();
+    
+        if (mapped_data.empty()) {
+            Logger::getInstance().log("WARNING: No valid data found in file: " + filename);
+        } else {
+            Logger::getInstance().log("Successfully read " + std::to_string(mapped_data.size()) + " entries from file: " + filename);
+        }
+    
         return true;
     }
 };
