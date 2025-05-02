@@ -3,7 +3,13 @@
 # Define source files and output targets
 SOURCE_FILES="main.cpp"
 OUTPUT_BINARY="MapReduce"
-SHARED_LIBRARY="LibMapReduce.so"
+
+# Detect platform and set shared library extension
+if [[ "$(uname)" == "Darwin" ]]; then
+    SHARED_LIBRARY="LibMapReduce.dylib"
+else
+    SHARED_LIBRARY="LibMapReduce.so"
+fi
 
 # Clean previous builds
 echo "Cleaning previous builds..."
@@ -17,6 +23,12 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
+# macOS-specific: Set install_name for the shared library
+if [[ "$(uname)" == "Darwin" ]]; then
+    echo "Setting install_name for $SHARED_LIBRARY..."
+    install_name_tool -id @rpath/$SHARED_LIBRARY $SHARED_LIBRARY
+fi
+
 # Compile executable binary
 echo "Compiling executable binary $OUTPUT_BINARY..."
 g++ -std=c++17 -o "$OUTPUT_BINARY" $SOURCE_FILES -pthread
@@ -25,4 +37,5 @@ if [ $? -ne 0 ]; then
     exit 1
 fi
 
-echo "Build process completed successfully. You can run the program with ./$OUTPUT_BINARY or use the shared library $SHARED_LIBRARY."
+echo "Build process completed successfully."
+echo "You can run the program with ./$OUTPUT_BINARY or use the shared library $SHARED_LIBRARY."
