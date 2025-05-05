@@ -17,34 +17,42 @@ namespace fs = std::filesystem;
 
 int main()
 { 
-    // Initialize logging
+    // INIT LOGGING
     Logger::getInstance().configureLogFilePath("application.log");
     Logger::getInstance().log("WELCOME TO MAPREDUCE...");
 
-    // Validate Input folder
+    // VALIDATE INPUT FOLDER
     std::string folder_path;
     std::vector<std::string> input_file_paths;
     std::cout << "Enter the folder path for the directory to be processed: ";
     std::getline(std::cin, folder_path);
 
-    // Build out folder_path from user input for blank, "", user input directories.
+    // BUILD blank_folder_path FOR USERS PUTTING "" output, temp directories.
     std::string blank_folder_path;
     std::string os_slash_type;
     size_t last_slash_pos = folder_path.find_last_of('\\');
 
     // Check if a backslash was found
     if (last_slash_pos != std::string::npos) {
-        // Dynamically build out folder_path for blank outPutFolder and tempFolder
+        // DYNAMICALLY BUILD blank_folder_path FROM USER'S INPUT DIRECTORY
         blank_folder_path = folder_path.substr(0, last_slash_pos+1);
+        // DYNAMICALLY BUILD os_slash_type BASED ON FINDINGS
         os_slash_type = "\\";
     } else {
+        // IF USER IS ON UNIX-LIKE
         last_slash_pos = folder_path.find_last_of('/');
-        // Dynamically build out folder_path for blank outPutFolder and tempFolder
+        // DYNAMICALLY BUILD blank_folder_path FROM USER'S INPUT DIRECTORY
         blank_folder_path = folder_path.substr(0, last_slash_pos+1);
+        // DYNAMICALLY BUILD os_slash_type BASED ON FINDINGS
         os_slash_type = "/";
     }
 
-    // Validate Output folder
+    if (!FileHandler::validate_directory(folder_path, input_file_paths, std::string(""), false)) {
+        Logger::getInstance().log("Invalid output folder path. Exiting.");
+        return 1;
+    }
+
+    // VALIDATE OUTPUT FOLDER
     std::string output_folder_path;
     std::cout << "Enter the folder path for the output directory: ";
     std::getline(std::cin, output_folder_path);
@@ -54,7 +62,7 @@ int main()
         return 1;
     }
 
-    // Validate Temporary folder
+    // VALIDATE TEMP FOLDER
     std::string temp_folder_path;
     std::cout << "Enter the folder path for the temporary directory for intermediate files: ";
     std::getline(std::cin, temp_folder_path);
@@ -64,28 +72,24 @@ int main()
         return 1;
     }
 
-    // Display the validated folder paths
+    // DISPLAY VALIDATED FOLDERS, PROCEED
     std::cout << "Input Folder: " << folder_path << std::endl;
     std::cout << "Output Folder: " << output_folder_path << std::endl;
     std::cout << "Temporary Folder: " << temp_folder_path << std::endl;
-
-    // Proceed with the rest of the program
     std::cout << "\nAll folder paths validated successfully. Proceeding with MapReduce...\n";
 
-    // Map phase
+    // MAP PHASE
     std::vector<std::string> extracted_lines;
     for (const auto &file_path : input_file_paths) {
         FileHandler::read_file(file_path, extracted_lines);
     }
 
     std::string mapped_file_path = temp_folder_path + os_slash_type + "mapped_temp.txt";
-
     Mapper mapper;
     mapper.map_words(extracted_lines, mapped_file_path);
 
-    // Reduce phase
+    // REDUCE PHASE
     std::vector<std::pair<std::string, int>> mapped_data;
-
 
     if (!FileHandler::read_mapped_data(mapped_file_path, mapped_data)) {
         Logger::getInstance().log("ERROR: Failed to read mapped data. Exiting.\n");
@@ -104,7 +108,7 @@ int main()
         Logger::getInstance().log("WARNING: reduced_data is empty. Output file will be empty.");
     }
 
-    // Write outputs
+    // WRITE, OUTPUT RESULTS
     std::string output_file_path = output_folder_path+ os_slash_type + "output.txt";
     if (!FileHandler::write_output(output_file_path, reduced_data)) {
         Logger::getInstance().log("ERROR: Failed to write output file. Exiting.\n");
@@ -123,7 +127,7 @@ int main()
         return 1;
     }
 
-    // Display results
+    // DISPLAY RESULTS
     Logger::getInstance().log("Process complete!");
     Logger::getInstance().log("Mapped data: mapped_temp.txt");
     Logger::getInstance().log("Word counts: output.txt");
