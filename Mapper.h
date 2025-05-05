@@ -29,14 +29,10 @@ public:
         if (last_slash_pos != std::string::npos) {
             // Dynamically build out tempFilePath for blank outPutFolder and tempFolder
             fullDirPath = tempFilePath.substr(0, last_slash_pos);
-            std::cout << "MAPPER: " << fullDirPath<< std::endl;
-            std::cout << "MAPPER FILE: " << tempFilePath<< std::endl;
         } else {
             last_slash_pos = tempFilePath.find_last_of('/');
             // Dynamically build out tempFilePath for blank outPutFolder and tempFolder
             fullDirPath = tempFilePath.substr(0, last_slash_pos);
-            std::cout << "MAPPER: " << fullDirPath<< std::endl;
-            std::cout << "MAPPER FILE: " << tempFilePath<< std::endl;
         }
         
         // Ensure the temporary folder path is valid
