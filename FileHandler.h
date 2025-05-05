@@ -60,28 +60,26 @@ public:
             }
         }
         
-        // IF A USER HAS INPUT BLANK outputFolder AND 
-        if (create_if_missing) {
-            // IF FOLDER ENTRY IS BLANK, CREATE DIR BASED ON INPUT FOLDER
-            if (folder_path.empty() && !input_dir.empty() && create_if_missing) {
-                logger.log("Folder path is blank. Deriving from original input folder: " + input_dir);
-                try {
-                    if (fs::create_directory(input_dir)) {
-                        folder_path = input_dir;
-                        logger.log("Directory created successfully: " + input_dir);
-                        return true;
-                    } else {
-                        logger.log("ERROR: Failed to create directory: " + input_dir);
-                        return false;
-                    }
-                } catch (const fs::filesystem_error &e) {
-                    logger.log("Filesystem error: " + std::string(e.what()));
+        // IF A USER HAS INPUT BLANK outputFolder AND/OR tempFolder, CREATE DIR BASED ON INPUT FOLDER
+        if (folder_path.empty() && !input_dir.empty() && create_if_missing) {
+            logger.log("Folder path is blank. Deriving from original input folder: " + input_dir);
+            try {
+                if (fs::create_directory(input_dir)) {
+                    folder_path = input_dir;
+                    logger.log("Directory created successfully: " + input_dir);
+                    return true;
+                } else {
+                    logger.log("ERROR: Failed to create directory: " + input_dir);
                     return false;
                 }
+            } catch (const fs::filesystem_error &e) {
+                logger.log("Filesystem error: " + std::string(e.what()));
+                return false;
             }
 
         }
         
+        // IF USER SUPPLIED DIRECTORY, BUT DNE, CREATE BASED ON PATH
         if (!folder_path.empty() || !create_if_missing) {       
             try {
                 if (fs::create_directory(folder_path)) {
