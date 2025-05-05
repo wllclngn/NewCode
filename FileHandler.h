@@ -29,13 +29,13 @@ public:
         Logger &logger = Logger::getInstance();
         logger.log("Starting directory validation process.");
 
-        // Check if the directory exists
+        // DIRECTORY VALIDATION: EXISTS, DNE
         if (fs::exists(folder_path) && input_dir.empty()) {
             if (fs::is_directory(folder_path)) {
                 logger.log("Validated directory: " + folder_path);
                 std::cout << "LOG: The directory " << folder_path << " already exists. Proceeding..." << std::endl;
 
-                // Retrieve file paths
+                // GET FILE PATHS FROM USER INPUT
                 try {
                     for (const auto &entry : fs::directory_iterator(folder_path)) {
                         if (entry.is_regular_file()) {
@@ -60,7 +60,7 @@ public:
             }
         }
         
-        // Directory does not exist
+        // IF A USER HAS INPUT BLANK outputFolder AND 
         if (create_if_missing) {
             // IF FOLDER ENTRY IS BLANK, CREATE DIR BASED ON INPUT FOLDER
             if (folder_path.empty() && !input_dir.empty() && create_if_missing) {
