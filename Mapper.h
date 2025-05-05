@@ -102,7 +102,7 @@ public:
 private:
     size_t calculate_dynamic_chunk_size(size_t totalSize) {
         size_t numThreads = std::thread::hardware_concurrency();
-        size_t defaultChunkSize = 500;
+        size_t defaultChunkSize = 1024;
 
         if (numThreads == 0) {
             return defaultChunkSize;
