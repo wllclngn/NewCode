@@ -5,23 +5,24 @@
 #include <string>
 #include <mutex>
 #include <thread>
-#include <future>
 #include <iostream>
 #include <cstdlib>
+#include <queue>
+#include <condition_variable>
 #include <functional>
+#include "ThreadPool.h"
 
 class Reducer {
 public:
-    Reducer() {}
+    Reducer(size_t minThreads = 2, size_t maxThreads = 8)
+        : threadPool(std::make_unique<ThreadPool>(minThreads, maxThreads)) {}
 
     void reduce(const std::vector<std::pair<std::string, int>>& mappedData, std::map<std::string, int>& reducedData) {
         std::mutex mutex;
         size_t chunkSize = calculate_dynamic_chunk_size(mappedData.size());
 
-        // Launch threads for parallel reduction
-        std::vector<std::future<void>> futures;
         for (size_t i = 0; i < mappedData.size(); i += chunkSize) {
-            futures.push_back(std::async(std::launch::async, [this, &mappedData, &reducedData, &mutex, i, chunkSize]() {
+            threadPool->enqueueTask([this, &mappedData, &reducedData, &mutex, i, chunkSize]() {
                 size_t startIdx = i;
                 size_t endIdx = std::min(startIdx + chunkSize, mappedData.size());
                 std::map<std::string, int> localReduce;
@@ -36,13 +37,10 @@ public:
                         reducedData[kv.first] += kv.second;
                     }
                 }
-            }));
+            });
         }
 
-        // Wait for all threads to finish
-        for (auto& future : futures) {
-            future.get();
-        }
+        threadPool->shutdown();
     }
 
 private:
@@ -57,4 +55,6 @@ private:
         size_t chunkSize = totalSize / numThreads;
         return chunkSize > defaultChunkSize ? chunkSize : defaultChunkSize;
     }
+
+    std::unique_ptr<ThreadPoolBase> threadPool;
 };
