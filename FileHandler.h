@@ -101,6 +101,34 @@ public:
         }
     }
 
+    static bool copy_dlls(const std::string &source_folder, const std::string &target_folder) {
+        Logger &logger = Logger::getInstance();
+        logger.log("Starting DLL copy process.");
+
+        try {
+            if (!fs::exists(target_folder)) {
+                fs::create_directories(target_folder);
+                logger.log("Target folder created: " + target_folder);
+            }
+
+            for (const auto &entry : fs::directory_iterator(source_folder)) {
+                if (entry.is_regular_file() && entry.path().extension() == ".dll") {
+                    std::string source_path = entry.path().string();
+                    std::string target_path = target_folder + "/" + entry.path().filename().string();
+
+                    fs::copy_file(source_path, target_path, fs::copy_options::overwrite_existing);
+                    logger.log("Copied DLL: " + source_path + " to " + target_path);
+                }
+            }
+        } catch (const fs::filesystem_error &e) {
+            ErrorHandler::reportError("Failed to copy DLL files. Error: " + std::string(e.what()));
+            return false;
+        }
+
+        logger.log("DLL copy process completed successfully.");
+        return true;
+    }
+
     static bool write_output(const std::string &filename, const std::map<std::string, int> &data) {
         if (data.empty()) {
             Logger::getInstance().log("WARNING: Data is empty. Output file will be empty.");
