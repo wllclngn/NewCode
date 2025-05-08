@@ -1,11 +1,11 @@
-# Understanding DLLs in the NewCode Project
+# Understanding DLLs in MapReduce
 
 ## Slide 1: Title and Introduction
-- **Title**: "Understanding DLLs in the NewCode Project"
+- **Title**: "Understanding DLLs in MapReduce"
 - **Subtitle**: Dynamic Link Libraries and Their Role in Modular Programming
 - **Content**:
-  - Brief overview of the NewCode project.
-  - Key technology: Multi-threaded C++ implementation of MapReduce.
+  - Brief overview of MapReduce.
+  - Key technology: Concurrent C++ implementation of MapReduce.
 
 ---
 
@@ -19,7 +19,7 @@
 
 ---
 
-## Slide 3: DLL Usage in NewCode
+## Slide 3: DLL Usage in MapReduce
 - **Content**:
   - The repository includes a class `MapperDLLso` that exports functionality for mapping words.
   - The DLL facilitates cross-platform compatibility, using macros like `__declspec(dllexport)` (Windows) and `__attribute__((visibility("default")))` (Linux).
@@ -60,7 +60,7 @@
 
 ---
 
-## Slide 8: Benefits of Using DLLs in NewCode
+## Slide 8: Benefits of Using DLLs in MapReduce
 - **Content**:
   - Modular architecture allows for scalable updates and maintenance.
   - Improved code sharing across different components.
@@ -78,6 +78,6 @@
 
 ## Slide 10: Summary and Q&A
 - **Content**:
-  - Recap the role of DLLs in NewCode.
+  - Recap the role of DLLs in MapReduce.
   - Highlight their contribution to modularity and cross-platform compatibility.
   - Open the floor for questions.
