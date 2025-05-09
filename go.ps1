@@ -23,6 +23,8 @@ function Clean-File {
     }
 }
 
+
+
 # Function to execute a shell command
 function Execute-Command {
     param (
@@ -37,6 +39,27 @@ function Execute-Command {
         Write-Host "Command executed successfully." -ForegroundColor Green
     }
     return $exitCode
+}
+
+# Prompt the user for custom DLL files
+function Get-CustomDLLs {
+    $customDLLs = @()
+    $useCustomDLLs = Read-Host "Do you have custom DLL files you'd like to include? (yes/no)"
+    if ($useCustomDLLs -eq "yes") {
+        while ($true) {
+            $dllPath = Read-Host "Enter the full path to your DLL file (or press Enter to finish)"
+            if ([string]::IsNullOrWhiteSpace($dllPath)) {
+                break
+            }
+
+            if (Test-Path -Path $dllPath) {
+                $customDLLs += $dllPath
+            } else {
+                Write-Host "Invalid path. The file does not exist. Please try again." -ForegroundColor Red
+            }
+        }
+    }
+    return $customDLLs
 }
 
 # Function to dynamically set up MSVC environment for x64
@@ -100,6 +123,15 @@ Write-Host "Starting the build process..." -ForegroundColor Cyan
 # Set up MSVC environment for x64
 Setup-MSVCEnvironment
 
+# Get custom DLLs from the user
+$customDLLs = Get-CustomDLLs
+if ($customDLLs.Count -gt 0) {
+    Write-Host "Custom DLLs provided:" -ForegroundColor Yellow
+    $customDLLs | ForEach-Object { Write-Host "  - $_" }
+} else {
+    Write-Host "No custom DLLs provided. Proceeding with default settings." -ForegroundColor Cyan
+}
+
 # Set up library and include paths
 Setup-LibraryAndIncludePaths
 
@@ -113,10 +145,11 @@ if (-not ($useMSVC -or $useGpp -or $useCMake)) {
     exit 1
 }
 
-# Define source files and output binary
+# Define source files, output binary, and link custom DLLs
 $sourceFiles = "main.cpp"
 $outputBinary = "MapReduce.exe"
 $outputDLL = "LibMapReduce.dll"
+$linkDLLs = $customDLLs -join " "
 
 # Clean up previous builds
 Write-Host "Cleaning up previous builds..." -ForegroundColor Yellow
@@ -126,13 +159,13 @@ Clean-File -FilePath $outputDLL
 # Build using MSVC
 if ($useMSVC) {
     Write-Host "Using MSVC (cl.exe) to build the project..." -ForegroundColor Cyan
-    $msvcSharedLibraryCommand = "cl /EHsc /std:c++17 /MT /LD $sourceFiles /Fe:$outputDLL"
+    $msvcSharedLibraryCommand = "cl /EHsc /std:c++17 /MT /LD $sourceFiles /Fe:$outputDLL $linkDLLs"
     if ((Execute-Command -Command $msvcSharedLibraryCommand) -ne 0) {
         Write-Host "ERROR: Failed to compile the shared library using MSVC. Exiting." -ForegroundColor Red
         exit 1
     }
 
-    $msvcBinaryCommand = "cl /EHsc /std:c++17 /MT $sourceFiles /Fe:$outputBinary"
+    $msvcBinaryCommand = "cl /EHsc /std:c++17 /MT $sourceFiles /Fe:$outputBinary $linkDLLs"
     if ((Execute-Command -Command $msvcBinaryCommand) -ne 0) {
         Write-Host "ERROR: Failed to compile the executable binary using MSVC. Exiting." -ForegroundColor Red
         exit 1
@@ -142,13 +175,13 @@ if ($useMSVC) {
 # Build using g++
 elseif ($useGpp) {
     Write-Host "Using g++ to build the project..." -ForegroundColor Cyan
-    $gppSharedLibraryCommand = "g++ -std=c++17 -shared -fPIC -o $outputDLL $sourceFiles -pthread"
+    $gppSharedLibraryCommand = "g++ -std=c++17 -shared -fPIC -o $outputDLL $sourceFiles $linkDLLs -pthread"
     if ((Execute-Command -Command $gppSharedLibraryCommand) -ne 0) {
         Write-Host "ERROR: Failed to compile the shared library using g++. Exiting." -ForegroundColor Red
         exit 1
     }
 
-    $gppBinaryCommand = "g++ -std=c++17 -o $outputBinary $sourceFiles -pthread"
+    $gppBinaryCommand = "g++ -std=c++17 -o $outputBinary $sourceFiles $linkDLLs -pthread"
     if ((Execute-Command -Command $gppBinaryCommand) -ne 0) {
         Write-Host "ERROR: Failed to compile the executable binary using g++. Exiting." -ForegroundColor Red
         exit 1

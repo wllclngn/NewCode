@@ -8,6 +8,11 @@
 #include <sstream>
 #include <cctype>
 #include <iostream>
+#include <map>
+#include <mutex>
+#include <thread>
+#include <future>
+#include <algorithm>
 
 // Export macro for cross-platform compatibility
 #if defined(_WIN32) || defined(_WIN64)
@@ -39,63 +44,103 @@ public:
 
         // Allow words of any length that are not purely numeric
         if (result.empty() || std::all_of(result.begin(), result.end(), ::isdigit)) {
-            //Logger::getInstance().log("Invalid word ignored: " + word);
             return "";
         }
 
         return result;
     }
 
-    // Virtual function for mapping words
-    virtual void map_words(const std::vector<std::string> &lines, const std::string &tempFolderPath) {
-        // Ensure cross-platform path handling
-        #ifdef _WIN32
-        std::string outputPath = tempFolderPath + "\\mapped_temp.txt";
-        #else
-        std::string outputPath = tempFolderPath + "/mapped_temp.txt";
-        #endif
+    virtual void map_words(const std::vector<std::string> &lines, const std::string &tempFilePath) {
+        // Build out tempFilePath from user input for blank, "", user input directories.
+        std::string fullDirPath;
+        size_t last_slash_pos = tempFilePath.find_last_of('\\');
 
-        std::ofstream temp_out(outputPath);
-        if (!temp_out) {
-            std::cerr << "Failed to open " << outputPath << " for writing." << std::endl;
+        // Check if a backslash was found
+        if (last_slash_pos != std::string::npos) {
+            // Dynamically build out tempFilePath for blank outPutFolder and tempFolder
+            fullDirPath = tempFilePath.substr(0, last_slash_pos);
+        } else {
+            last_slash_pos = tempFilePath.find_last_of('/');
+            // Dynamically build out tempFilePath for blank outPutFolder and tempFolder
+            fullDirPath = tempFilePath.substr(0, last_slash_pos);
+        }
+        
+        // Ensure the temporary folder path is valid
+        if (!fs::exists(fullDirPath)) {
+            report_error("Temporary folder does not exist: " + tempFilePath);
+            return;
+        }
+        if (!fs::is_directory(fullDirPath)) {
+            report_error("Temporary folder is not a directory: " + tempFilePath);
             return;
         }
 
-        std::cout << "Mapping words..." << std::endl;
-        for (const auto &line : lines) {
-            std::stringstream ss(line);
-            std::string word;
-            while (ss >> word) {
-                std::string cleaned = clean_word(word);
-                if (!cleaned.empty()) {
-                    mapped.push_back({cleaned, 1});
-                    if (mapped.size() >= 100) {
-                        write_chunk_to_file(temp_out);
-                        mapped.clear();
+        // Open the output file for writing
+        std::ofstream temp_out(tempFilePath);
+        if (!temp_out) {
+            report_error("Could not open " + tempFilePath + " for writing.");
+            return;
+        }
+      
+        // Mutex for synchronizing file writes
+        std::mutex file_mutex;
+
+        // Calculate the optimal chunk size for processing
+        size_t chunkSize = calculate_dynamic_chunk_size(lines.size());
+
+        // Launch threads for parallel processing
+        std::vector<std::future<void>> futures;
+        for (size_t i = 0; i < lines.size(); i += chunkSize) {
+            futures.push_back(std::async(std::launch::async, [this, &lines, &temp_out, &file_mutex, i, chunkSize]() {
+                size_t startIdx = i;
+                size_t endIdx = std::min(startIdx + chunkSize, lines.size());
+                std::map<std::string, int> localMap;
+
+                // Perform local mapping
+                for (size_t j = startIdx; j < endIdx; ++j) {
+                    std::istringstream ss(lines[j]);
+                    std::string word;
+                    while (ss >> word) {
+                        localMap[clean_word(word)]++;
                     }
                 }
-            }
+
+                // Write the local map to the output file with synchronization
+                {
+                    std::lock_guard<std::mutex> lock(file_mutex);
+                    for (const auto& kv : localMap) {
+                        temp_out << kv.first << ": " << kv.second << "\n";
+                    }
+                }
+            }));
         }
 
-        if (!mapped.empty()) {
-            write_chunk_to_file(temp_out);
-            mapped.clear();
+        // Wait for all threads to finish
+        for (auto& future : futures) {
+            future.get();
         }
 
+        // Close the output file
         temp_out.close();
-        std::cout << "Mapping complete. Data written to " << outputPath << std::endl;
     }
 
 protected:
-    // Virtual function for writing a chunk of data to a file
-    virtual void write_chunk_to_file(std::ofstream &outfile) const {
-        for (const auto &kv : mapped) {
-            outfile << "<" << kv.first << ", " << kv.second << ">" << std::endl;
-        }
+    // Virtual function for reporting errors
+    virtual void report_error(const std::string &error_message) const {
+        std::cerr << "Error: " << error_message << std::endl;
     }
 
-    // Protected member to allow derived classes to access the mapped data
-    mutable std::vector<std::pair<std::string, int>> mapped;
+    size_t calculate_dynamic_chunk_size(size_t totalSize) const {
+        size_t numThreads = std::thread::hardware_concurrency();
+        size_t defaultChunkSize = 1024;
+
+        if (numThreads == 0) {
+            return defaultChunkSize;
+        }
+
+        size_t chunkSize = totalSize / numThreads;
+        return chunkSize > defaultChunkSize ? chunkSize : defaultChunkSize;
+    }
 };
 
 #endif
