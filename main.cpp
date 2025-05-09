@@ -10,8 +10,8 @@
 #include "ERROR_Handler.h"
 #include "FileHandler.h"
 #include "Logger.h"
-#include "Mapper.h"
-#include "Reducer.h"
+#include "Mapper_DLL_so.h"
+#include "Reducer_DLL_so.h"
 
 namespace fs = std::filesystem;
 
@@ -85,7 +85,7 @@ int main()
     }
 
     std::string mapped_file_path = temp_folder_path + os_slash_type + "mapped_temp.txt";
-    Mapper mapper;
+    MapperDLLso mapper;
     mapper.map_words(extracted_lines, mapped_file_path);
 
     // REDUCE PHASE
@@ -101,7 +101,7 @@ int main()
     }
 
     std::map<std::string, int> reduced_data;
-    Reducer reducer;
+    ReducerDLLso reducer;
     reducer.reduce(mapped_data, reduced_data);
 
     if (reduced_data.empty()) {
