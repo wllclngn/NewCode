@@ -6,13 +6,14 @@
 #include <string>
 #include <mutex>
 #include <thread>
-#include <algorithm> // For std::min, std::max
-// #include <iostream> // Removed if not used directly by this class for errors (prefer ErrorHandler)
-// #include <filesystem> // Removed as not used in the provided class logic
+#include <algorithm> // For std::min
+#include <iostream>  // For std::cerr (if ErrorHandler isn't used directly)
+#include <filesystem>
 
-#include "ThreadPool.h"
-#include "ErrorHandler.h" // Include for centralized error handling
-#include "Logger.h"       // Include for centralized logging
+#include "ThreadPool.h"   // Assuming ThreadPool.h is accessible
+#include "ErrorHandler.h" // Assuming ErrorHandler.h is accessible
+#include "Logger.h"       // Assuming Logger.h is accessible
+
 
 // Export macro for cross-platform compatibility
 #if defined(_WIN32) || defined(_WIN64)
@@ -27,64 +28,107 @@ class DLL_so_EXPORT ReducerDLLso {
 public:
     virtual ~ReducerDLLso() {}
 
-    // The reduce function takes data that has already been read and parsed by the Reducer Process.
-    // Sorting of mappedData (by key) should ideally happen in the Reducer Process before calling this.
-    virtual void reduce(const std::vector<std::pair<std::string, int>> &mappedData, std::map<std::string, int> &reducedData) {
-        // If mappedData is empty, reducedData will remain empty. This is valid.
-        // Logger::getInstance().log("ReducerDLLso: Starting reduce operation. Mapped data size: " + std::to_string(mappedData.size()));
+    // Original reduce method (used by interactive mode, which prepares a single mapped_data vector)
+    // This version will use default thread pool sizes.
+    virtual void reduce(const std::vector<std::pair<std::string, int>>& mappedData, 
+                        std::map<std::string, int>& reducedData) {
+        
+        size_t defaultMinThreads = std::thread::hardware_concurrency();
+        if (defaultMinThreads == 0) defaultMinThreads = 2;
+        size_t defaultMaxThreads = defaultMinThreads; // Keep min=max for simplicity here
 
-        std::mutex mutex; // Mutex to protect access to reducedData map
-        size_t chunkSize = calculate_dynamic_chunk_size(mappedData.size());
-        size_t numThreads = std::thread::hardware_concurrency();
-        if (numThreads == 0) numThreads = 4; // fallback
+        Logger::getInstance().log("REDUCER_DLL_SO (2-arg): Starting reduction. Pool: " + 
+                                  std::to_string(defaultMinThreads) + "-" + std::to_string(defaultMaxThreads) + " threads.");
+        
+        process_reduce(mappedData, reducedData, defaultMinThreads, defaultMaxThreads);
+        Logger::getInstance().log("REDUCER_DLL_SO (2-arg): Finished reduction.");
+    }
 
-        ThreadPool pool(numThreads, numThreads); // Assuming ThreadPool is suitable
+    // New reduce method for command-line driven reducer mode (4 arguments)
+    // Accepts min/max pool threads.
+    virtual void reduce(const std::vector<std::pair<std::string, int>>& mappedData, 
+                        std::map<std::string, int>& reducedData,
+                        size_t minPoolThreads, // New parameter
+                        size_t maxPoolThreads) // New parameter
+                        {
+        // Validate thread pool sizes
+        if (minPoolThreads == 0) minPoolThreads = 1;
+        if (maxPoolThreads < minPoolThreads) maxPoolThreads = minPoolThreads;
+
+        Logger::getInstance().log("REDUCER_DLL_SO (4-arg): Starting reduction. Pool: " + 
+                                  std::to_string(minPoolThreads) + "-" + std::to_string(maxPoolThreads) + " threads.");
+        
+        process_reduce(mappedData, reducedData, minPoolThreads, maxPoolThreads);
+        Logger::getInstance().log("REDUCER_DLL_SO (4-arg): Finished reduction.");
+    }
+
+
+protected:
+    // Common processing logic for reduce, now taking thread pool sizes
+    void process_reduce(const std::vector<std::pair<std::string, int>>& mappedData, 
+                        std::map<std::string, int>& reducedData,
+                        size_t minThreads, 
+                        size_t maxThreads) {
+        std::mutex reduce_mutex; // Mutex to protect writing to the shared reducedData map
+        
+        // Sort data by key to group identical keys for parallel processing if desired,
+        // or rely on map's ordering and atomic operations if applicable.
+        // For simplicity with ThreadPool and merging local maps, sorting isn't strictly
+        // necessary if each thread processes a chunk and merges into a global map.
+        // The current approach: each thread processes a chunk of the vector and aggregates into local map,
+        // then merges local map into the global reducedData map under a lock.
+
+        size_t chunkSize = calculate_dynamic_chunk_size(mappedData.size(), maxThreads);
+        
+        ThreadPool pool(minThreads, maxThreads);
 
         for (size_t i = 0; i < mappedData.size(); i += chunkSize) {
-            pool.enqueueTask([&, i, &mappedData, &reducedData, &mutex, chunkSize]() { // Explicitly capture all needed variables
+            pool.enqueueTask([this, &mappedData, &reducedData, &reduce_mutex, i, chunkSize]() { // Capture 'this'
                 size_t startIdx = i;
                 size_t endIdx = std::min(startIdx + chunkSize, mappedData.size());
-                
-                // Local aggregation for this thread's chunk
-                std::map<std::string, int> localReduce; 
+                std::map<std::string, int> localReduceMap; // Each thread accumulates locally
+
                 for (size_t j = startIdx; j < endIdx; ++j) {
-                    // Basic check, though loop conditions and std::min should prevent out-of-bounds
-                    if (j < mappedData.size()) { 
-                        localReduce[mappedData[j].first] += mappedData[j].second;
-                    }
+                    // mappedData should already contain <word, count> pairs from mappers.
+                    // If multiple mappers produced the same word, they'd be separate entries here.
+                    localReduceMap[mappedData[j].first] += mappedData[j].second;
                 }
-                
-                // Merge localReduce into the global reducedData under a lock
-                {
-                    std::lock_guard<std::mutex> lock(mutex);
-                    for (const auto &kv : localReduce) {
+
+                // Lock and merge the local map into the global reducedData
+                if (!localReduceMap.empty()) {
+                    std::lock_guard<std::mutex> lock(reduce_mutex);
+                    for (const auto &kv : localReduceMap) {
                         reducedData[kv.first] += kv.second;
                     }
                 }
             });
         }
         pool.shutdown(); // Wait for all tasks to complete
-        // Logger::getInstance().log("ReducerDLLso: Reduce operation finished. Reduced data size: " + std::to_string(reducedData.size()));
     }
 
-protected:
-    // Standardized dynamic chunk size calculation
-    virtual size_t calculate_dynamic_chunk_size(size_t totalSize) const {
-        size_t numThreads = std::thread::hardware_concurrency();
-        if (numThreads == 0) numThreads = 1; // Ensure at least 1 thread for calculation
-        size_t defaultChunkSize = 1024; // Minimum items per chunk
+
+    virtual void report_error(const std::string &error_message) const {
+         Logger::getInstance().log("ERROR (ReducerDLLso): " + error_message);
+    }
+
+    // Calculate dynamic chunk size, similar to Mapper's
+    size_t calculate_dynamic_chunk_size(size_t totalSize, size_t guideMaxThreads = 0) const {
+        size_t numEffectiveThreads = guideMaxThreads > 0 ? guideMaxThreads : std::thread::hardware_concurrency();
+        if (numEffectiveThreads == 0) numEffectiveThreads = 4;
         
-        if (totalSize == 0) return defaultChunkSize; // If totalSize is 0, loop for tasks won't run based on i < mappedData.size().
+        const size_t minChunkSize = 256; 
+        const size_t maxChunksPerThreadFactor = 4;
+        const size_t maxTotalChunks = numEffectiveThreads * maxChunksPerThreadFactor;
 
-        size_t chunkSize = totalSize / numThreads;
-        if (totalSize % numThreads != 0 && totalSize > numThreads) { // ensure chunkSize increases only if it makes sense
-             chunkSize++;
-        }
-        if (chunkSize == 0 && totalSize > 0) { // handles totalSize < numThreads
-            chunkSize = totalSize; // process all in one chunk if less than numThreads or defaultChunkSize allows
-        }
+        if (totalSize == 0) return minChunkSize;
 
-        return std::max(defaultChunkSize, chunkSize);
+        size_t chunkSize = totalSize / numEffectiveThreads;
+
+        if (numEffectiveThreads > 0 && totalSize / chunkSize > maxTotalChunks && maxTotalChunks > 0) {
+            chunkSize = totalSize / maxTotalChunks;
+        }
+        
+        return std::max(minChunkSize, chunkSize);
     }
 };
 
