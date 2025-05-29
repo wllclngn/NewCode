@@ -1,24 +1,28 @@
-#pragma once
+#pragma once // Use #pragma once for modern compilers
+#ifndef FILE_HANDLER_H // Traditional include guards for wider compatibility
+#define FILE_HANDLER_H
+
 #include <string>
 #include <vector>
 #include <fstream>
 #include <iostream>
 #include <filesystem>
-#include <map>      // Added for write_output and read_mapped_data
-#include <sstream>  // Added for read_mapped_data
-#include <algorithm> // Added for sorting in get_files_in_directory (optional)
+#include <map>     // For write_output, write_summed_output, read_mapped_data
+#include <sstream> // For read_mapped_data
+#include <algorithm> // For std::remove for trim
 
-#include "ERROR_Handler.h"
-#include "Logger.h"
+#include "ERROR_Handler.h" // Assuming ErrorHandler.h is accessible
+#include "Logger.h"      // Assuming Logger.h is accessible
 
 namespace fs = std::filesystem;
 
 class FileHandler {
 public:
+    // Reads all lines from a file into a vector of strings.
     static bool read_file(const std::string &filename, std::vector<std::string> &lines) {
         std::ifstream file(filename);
         if (!file) {
-            ErrorHandler::reportError("FileHandler: Could not open file " + filename + " for reading.");
+            ErrorHandler::reportError("FILE_HANDLER: Could not open file " + filename + " for reading.");
             return false;
         }
         std::string line;
@@ -26,127 +30,180 @@ public:
             lines.push_back(line);
         }
         file.close();
-        Logger::getInstance().log("FileHandler: Successfully read " + std::to_string(lines.size()) + " lines from " + filename);
         return true;
     }
 
-    // Updated to handle directory creation more explicitly and log actions
-    static bool validate_directory(const std::string &folder_path, bool create_if_missing = true) {
+    // Original validate_directory (4 arguments) - used by interactive mode
+    static bool validate_directory(std::string &folder_path, 
+                                   std::vector<std::string> &file_paths, 
+                                   const std::string &default_path_if_empty,
+                                   bool create_if_missing) {
         Logger &logger = Logger::getInstance();
-        logger.log("FileHandler: Validating directory: " + folder_path);
+        logger.log("FILE_HANDLER (4-arg): Validating dir. User Path: '" + folder_path + "', Default: '" + default_path_if_empty + "'");
+
+        bool path_was_empty_and_default_used = false;
+        if (folder_path.empty()) {
+            if (!default_path_if_empty.empty()) {
+                folder_path = default_path_if_empty;
+                path_was_empty_and_default_used = true;
+                logger.log("FILE_HANDLER (4-arg): User path empty, using default: " + folder_path);
+            } else {
+                logger.log("FILE_HANDLER (4-arg): User path and default path are empty. Cannot validate.");
+                ErrorHandler::reportError("FILE_HANDLER (4-arg): Directory path and default path cannot both be empty.");
+                return false;
+            }
+        }
 
         if (fs::exists(folder_path)) {
             if (fs::is_directory(folder_path)) {
-                logger.log("FileHandler: Directory " + folder_path + " exists and is valid.");
+                logger.log("FILE_HANDLER (4-arg): Validated existing directory: " + folder_path);
+                // Populate file_paths only if this is likely an input directory.
+                // Heuristic: if the path was NOT created using a default output/temp folder name.
+                if (!path_was_empty_and_default_used || default_path_if_empty.find("outputFolder") == std::string::npos && default_path_if_empty.find("tempFolder") == std::string::npos) {
+                    try {
+                        file_paths.clear(); 
+                        for (const auto &entry : fs::directory_iterator(folder_path)) {
+                            if (entry.is_regular_file()) {
+                                std::string current_file_path = entry.path().string();
+                                if (entry.path().extension() == ".txt") {
+                                    file_paths.push_back(current_file_path);
+                                } else {
+                                    logger.log("FILE_HANDLER (4-arg): Skipped non-txt file: " + current_file_path);
+                                }
+                            }
+                        }
+                        logger.log("FILE_HANDLER (4-arg): " + std::to_string(file_paths.size()) + " .txt files found in: " + folder_path);
+                    } catch (const fs::filesystem_error &e) {
+                        ErrorHandler::reportError("FILE_HANDLER (4-arg): Error retrieving file paths from " + folder_path + ": " + e.what());
+                        return false;
+                    }
+                }
                 return true;
             } else {
-                ErrorHandler::reportError("FileHandler: Path " + folder_path + " exists but is not a directory.", true);
+                ErrorHandler::reportError("FILE_HANDLER (4-arg): Path exists but is not a directory: " + folder_path);
+                return false;
+            }
+        } else if (create_if_missing) {
+            logger.log("FILE_HANDLER (4-arg): Directory does not exist, attempting to create: " + folder_path);
+            try {
+                if (fs::create_directories(folder_path)) {
+                    logger.log("FILE_HANDLER (4-arg): Directory created successfully: " + folder_path);
+                    return true;
+                } else {
+                    ErrorHandler::reportError("FILE_HANDLER (4-arg): Failed to create directory (fs::create_directories returned false): " + folder_path);
+                    return false;
+                }
+            } catch (const fs::filesystem_error &e) {
+                ErrorHandler::reportError("FILE_HANDLER (4-arg): Filesystem error while creating directory " + folder_path + ": " + e.what());
                 return false;
             }
         } else {
-            if (create_if_missing) {
-                logger.log("FileHandler: Directory " + folder_path + " does not exist. Attempting to create.");
-                try {
-                    if (fs::create_directories(folder_path)) { // create_directories handles nested paths
-                        logger.log("FileHandler: Directory " + folder_path + " created successfully.");
-                        return true;
-                    } else {
-                        // This case might be rare if create_directories fails without an exception,
-                        // but good to have a fallback error.
-                        ErrorHandler::reportError("FileHandler: Failed to create directory " + folder_path + " (unknown reason).", true);
-                        return false;
-                    }
-                } catch (const fs::filesystem_error &e) {
-                    ErrorHandler::reportError("FileHandler: Filesystem error while creating directory " + folder_path + ": " + e.what(), true);
+            ErrorHandler::reportError("FILE_HANDLER (4-arg): Directory does not exist and creation is disabled: " + folder_path);
+            return false;
+        }
+    }
+
+    // New validate_directory (2 arguments) - for command-line controller
+    static bool validate_directory(const std::string& path, bool create_if_missing) {
+        Logger::getInstance().log("FILE_HANDLER (2-arg): Validating directory. Path: '" + path + "'");
+        if (path.empty()){
+            ErrorHandler::reportError("FILE_HANDLER (2-arg): Directory path cannot be empty.");
+            return false;
+        }
+
+        if (fs::exists(path)) {
+            if (fs::is_directory(path)) {
+                Logger::getInstance().log("FILE_HANDLER (2-arg): Validated existing directory: " + path);
+                return true;
+            } else {
+                ErrorHandler::reportError("FILE_HANDLER (2-arg): Path exists but is not a directory: " + path);
+                return false;
+            }
+        } else if (create_if_missing) {
+            Logger::getInstance().log("FILE_HANDLER (2-arg): Directory does not exist, attempting to create: " + path);
+            try {
+                if (fs::create_directories(path)) { 
+                    Logger::getInstance().log("FILE_HANDLER (2-arg): Directory created successfully: " + path);
+                    return true;
+                } else {
+                    ErrorHandler::reportError("FILE_HANDLER (2-arg): Failed to create directory (fs::create_directories returned false): " + path);
                     return false;
                 }
-            } else {
-                ErrorHandler::reportError("FileHandler: Directory " + folder_path + " does not exist and creation is disabled.");
-                return false; // Not necessarily critical, depends on context, but for validate_directory it's a failure.
+            } catch (const fs::filesystem_error& e) {
+                ErrorHandler::reportError("FILE_HANDLER (2-arg): Filesystem error while creating directory " + path + ": " + e.what());
+                return false;
             }
+        } else {
+            ErrorHandler::reportError("FILE_HANDLER (2-arg): Directory does not exist and creation is disabled: " + path);
+            return false;
+        }
+    }
+
+    // New get_files_in_directory - for command-line controller
+    static bool get_files_in_directory(const std::string& dirPath, 
+                                       std::vector<std::string>& filePaths, 
+                                       const std::string& extensionFilter = "") { 
+        Logger::getInstance().log("FILE_HANDLER: Getting files from dir: " + dirPath + (extensionFilter.empty() ? "" : " (Filter: " + extensionFilter + ")"));
+        filePaths.clear(); 
+
+        if (!fs::exists(dirPath) || !fs::is_directory(dirPath)) {
+            ErrorHandler::reportError("FILE_HANDLER: Cannot get files, path is not a valid directory: " + dirPath);
+            return false;
+        }
+
+        try {
+            for (const auto& entry : fs::directory_iterator(dirPath)) {
+                if (entry.is_regular_file()) {
+                    if (extensionFilter.empty() || entry.path().extension().string() == extensionFilter) {
+                        filePaths.push_back(entry.path().string());
+                    }
+                }
+            }
+            Logger::getInstance().log("FILE_HANDLER: Found " + std::to_string(filePaths.size()) + " files with filter '" + extensionFilter + "' in " + dirPath);
+            return true;
+        } catch (const fs::filesystem_error& e) {
+            ErrorHandler::reportError("FILE_HANDLER: Error iterating directory " + dirPath + ": " + e.what());
+            return false;
         }
     }
     
-    // Overload for the original validate_directory if still needed by other parts of existing code
-    // This version was more complex and tied to specific input_dir logic.
-    // For Phase 3, the simpler version above is likely more generally useful.
-    // If this specific logic is still critical, it should be refactored or used carefully.
-    // For now, I'm keeping the simpler one as the primary.
-    /*
-    static bool validate_directory(std::string &folder_path, std::vector<std::string> &file_paths, std::string &input_dir, bool create_if_missing = true) {
-        // ... original complex logic ...
-        // This version should be reviewed if it's still essential for Phase 2 compatibility vs. Phase 3 needs.
-        // The simpler validate_directory(const std::string&, bool) is preferred for new Phase 3 controller logic.
-        ErrorHandler::reportError("FileHandler: Deprecated validate_directory overload called. Please refactor.", true);
-        return false;
-    }
-    */
-
-
-    // New function to get files from a directory, optionally filtering by extension
-    static bool get_files_in_directory(
-        const std::string& dir_path, 
-        std::vector<std::string>& file_paths, 
-        const std::string& extension_filter = "" // e.g., ".txt", empty means all files
-    ) {
-        Logger::getInstance().log("FileHandler: Getting files from directory: " + dir_path + (extension_filter.empty() ? "" : " with extension " + extension_filter));
-        if (!fs::exists(dir_path) || !fs::is_directory(dir_path)) {
-            ErrorHandler::reportError("FileHandler: Directory " + dir_path + " does not exist or is not a directory.");
+    static bool create_empty_file(const std::string& filepath) {
+        Logger::getInstance().log("FILE_HANDLER: Creating empty file: " + filepath);
+        std::ofstream file(filepath);
+        if (!file.is_open()) {
+            ErrorHandler::reportError("FILE_HANDLER: Failed to create empty file: " + filepath);
             return false;
         }
-
-        file_paths.clear();
-        try {
-            for (const auto &entry : fs::directory_iterator(dir_path)) {
-                if (entry.is_regular_file()) {
-                    if (extension_filter.empty() || entry.path().extension() == extension_filter) {
-                        file_paths.push_back(entry.path().string());
-                    }
-                }
-            }
-            // Optional: Sort file paths for deterministic behavior, especially for mappers
-            std::sort(file_paths.begin(), file_paths.end());
-            Logger::getInstance().log("FileHandler: Found " + std::to_string(file_paths.size()) + " files in " + dir_path);
-            return true;
-        } catch (const fs::filesystem_error &e) {
-            ErrorHandler::reportError("FileHandler: Could not retrieve file paths from directory " + dir_path + ". Error: " + e.what());
-            return false;
-        }
+        file.close(); // Ensures file is created on disk
+        return true;
     }
-
 
     static bool write_output(const std::string &filename, const std::map<std::string, int> &data) {
-        Logger::getInstance().log("FileHandler: Writing output to file: " + filename);
         if (data.empty()) {
-            Logger::getInstance().log("FileHandler: WARNING - Data is empty. Output file " + filename + " will be empty.");
+            Logger::getInstance().log("FILE_HANDLER: WARNING - Data for write_output is empty. Output file " + filename + " will be empty.");
         }
 
         std::ofstream file(filename);
         if (!file) {
-            ErrorHandler::reportError("FileHandler: Could not open file " + filename + " for writing. Check permissions or directory existence.");
+            ErrorHandler::reportError("FILE_HANDLER: Could not open file " + filename + " for writing.");
             return false;
         }
         for (const auto &kv : data) {
             file << kv.first << ": " << kv.second << "\n";
         }
         file.close();
-        Logger::getInstance().log("FileHandler: Successfully wrote " + std::to_string(data.size()) + " entries to " + filename);
+        Logger::getInstance().log("FILE_HANDLER: Successfully wrote " + std::to_string(data.size()) + " entries to " + filename);
         return true;
     }
 
-    // This function might be useful for the controller's final aggregation step if it needs to sum up
-    // values from different reducer outputs. However, if reducers already produce final sums for their keys,
-    // and keys are perfectly partitioned, this might not be needed.
-    // The `write_output` is more general for key:value pairs.
     static bool write_summed_output(const std::string &filename, const std::map<std::string, std::vector<int>> &data) {
-        Logger::getInstance().log("FileHandler: Writing summed output to file: " + filename);
         if (data.empty()) {
-            Logger::getInstance().log("FileHandler: WARNING - Summed data is empty. Output file " + filename + " will be empty.");
+            Logger::getInstance().log("FILE_HANDLER: WARNING - Data for write_summed_output is empty. Output file " + filename + " will be empty.");
         }
 
         std::ofstream outfile(filename);
         if (!outfile) {
-            ErrorHandler::reportError("FileHandler: Could not open file " + filename + " for writing. Check permissions or directory existence.");
+            ErrorHandler::reportError("FILE_HANDLER: Could not open file " + filename + " for writing (summed output).");
             return false;
         }
         for (const auto &kv : data) {
@@ -154,89 +211,82 @@ public:
             for (int count : kv.second) {
                 sum += count;
             }
-            outfile << "<\"" << kv.first << "\", " << sum << ">\n"; // Original format
+            outfile << "<\"" << kv.first << "\", " << sum << ">\n";
         }
         outfile.close();
-        Logger::getInstance().log("FileHandler: Successfully wrote summed output for " + std::to_string(data.size()) + " keys to " + filename);
+        Logger::getInstance().log("FILE_HANDLER: Successfully wrote summed output to " + filename);
         return true;
+    }
+    
+    // Helper to trim whitespace from both ends of a string
+    static std::string trim_string(const std::string& str) {
+        std::string s = str;
+        // Trim leading whitespace
+        s.erase(s.begin(), std::find_if(s.begin(), s.end(), [](unsigned char ch) {
+            return !std::isspace(ch);
+        }));
+        // Trim trailing whitespace
+        s.erase(std::find_if(s.rbegin(), s.rend(), [](unsigned char ch) {
+            return !std::isspace(ch);
+        }).base(), s.end());
+        return s;
     }
 
     static bool read_mapped_data(const std::string &filename, std::vector<std::pair<std::string, int>> &mapped_data) {
-        Logger::getInstance().log("FileHandler: Attempting to read mapped data from file: " + filename);
+        Logger::getInstance().log("FILE_HANDLER: Attempting to read mapped data from file: " + filename);
     
         std::ifstream infile(filename);
         if (!infile) {
-            ErrorHandler::reportError("FileHandler: Could not open file " + filename + " for reading.");
-            return false; // Return false, don't make it critical here, caller can decide.
+            ErrorHandler::reportError("FILE_HANDLER: Could not open file " + filename + " for reading (mapped data).");
+            return false;
         }
     
         std::string line;
         int line_number = 0;
-        size_t initial_size = mapped_data.size(); // In case we are appending to existing vector
-
         while (std::getline(infile, line)) {
             line_number++;
     
-            size_t colon = line.find(':');
-            if (colon != std::string::npos && colon > 0) { // Ensure colon is not the first char
+            size_t colon_pos = line.find(':');
+            if (colon_pos != std::string::npos && colon_pos > 0) { // Ensure colon is not the first character
+                std::string word = line.substr(0, colon_pos);
+                std::string count_str = line.substr(colon_pos + 1);
+    
+                word = trim_string(word);
+                count_str = trim_string(count_str);
+    
+                if (word.empty()) {
+                    Logger::getInstance().log("FILE_HANDLER: WARNING - Skipped line " + std::to_string(line_number) + " in " + filename + " (empty word after trim): " + line);
+                    continue;
+                }
+                if (count_str.empty()) {
+                     Logger::getInstance().log("FILE_HANDLER: WARNING - Skipped line " + std::to_string(line_number) + " in " + filename + " (empty count string after trim): " + line);
+                    continue;
+                }
+
                 try {
-                    std::string word = line.substr(0, colon);
-                    std::string count_str = line.substr(colon + 1);
-    
-                    // Trim whitespace
-                    word.erase(0, word.find_first_not_of(" \t\r\n"));
-                    word.erase(word.find_last_not_of(" \t\r\n") + 1);
-                    count_str.erase(0, count_str.find_first_not_of(" \t\r\n"));
-                    count_str.erase(count_str.find_last_not_of(" \t\r\n") + 1);
-    
-                    if (word.empty()) {
-                        // Logger::getInstance().log("FileHandler: WARNING - Empty key on line " + std::to_string(line_number) + " in " + filename);
-                        continue; 
-                    }
-                    
-                    int count = 0;
-                    std::stringstream ss_count(count_str);
-                    ss_count >> count;
-    
-                    if (!ss_count.fail() && ss_count.eof()) { // Ensure entire string was consumed and is valid int
-                        mapped_data.emplace_back(word, count);
-                    } else {
-                         Logger::getInstance().log("FileHandler: WARNING - Invalid count format '" + count_str + "' for key '" + word + "' on line " + std::to_string(line_number) + " in " + filename);
-                    }
-                } catch (const std::exception &e) {
-                    Logger::getInstance().log("FileHandler: ERROR - Exception while processing line " + std::to_string(line_number) + " in " + filename + ": " + line + ". Exception: " + e.what());
+                    int count = std::stoi(count_str);
+                    mapped_data.emplace_back(word, count);
+                } catch (const std::invalid_argument& ia) {
+                    Logger::getInstance().log("FILE_HANDLER: WARNING - Invalid number format on line " + std::to_string(line_number) + " in " + filename + " (count: '" + count_str + "'): " + line);
+                } catch (const std::out_of_range& oor) {
+                    Logger::getInstance().log("FILE_HANDLER: WARNING - Number out of range on line " + std::to_string(line_number) + " in " + filename + " (count: '" + count_str + "'): " + line);
                 }
             } else {
-                 if (!line.empty() && line.find_first_not_of(" \t\r\n") != std::string::npos) { // Report only non-empty, non-whitespace lines
-                    Logger::getInstance().log("FileHandler: WARNING - Skipped malformed line (no valid colon separator) " + std::to_string(line_number) + " in " + filename + ": " + line);
-                 }
+                std::string trimmed_line = trim_string(line);
+                if (!trimmed_line.empty()) { // Only log warning for non-empty malformed lines
+                    Logger::getInstance().log("FILE_HANDLER: WARNING - Skipped malformed line " + std::to_string(line_number) + " in " + filename + " (format error): " + line);
+                }
             }
         }
-    
         infile.close();
     
-        if (mapped_data.size() == initial_size && line_number > 0) { // Read lines but no valid data found
-            Logger::getInstance().log("FileHandler: WARNING - No valid key-value data found in file: " + filename + " despite reading " + std::to_string(line_number) + " lines.");
-        } else if (mapped_data.size() > initial_size) {
-            Logger::getInstance().log("FileHandler: Successfully read " + std::to_string(mapped_data.size() - initial_size) + " new entries from file: " + filename);
-        } else if (line_number == 0) {
-             Logger::getInstance().log("FileHandler: File " + filename + " was empty or could not be read line by line after opening.");
+        if (mapped_data.empty() && line_number > 0) { // If file had lines but no valid data was parsed
+            Logger::getInstance().log("FILE_HANDLER: WARNING - No valid data parsed from file: " + filename + " (" + std::to_string(line_number) + " lines read).");
+        } else {
+            Logger::getInstance().log("FILE_HANDLER: Successfully read " + std::to_string(mapped_data.size()) + " entries from file: " + filename);
         }
-    
-        return true; // True if file was opened, even if no valid data was parsed. Caller checks mapped_data size.
-    }
-
-    // Helper to create an empty file, e.g. for _SUCCESS signal
-    static bool create_empty_file(const std::string& filepath) {
-        Logger::getInstance().log("FileHandler: Creating empty file: " + filepath);
-        std::ofstream file(filepath);
-        if (!file) {
-            ErrorHandler::reportError("FileHandler: Could not create empty file " + filepath, true);
-            return false;
-        }
-        file.close();
-        Logger::getInstance().log("FileHandler: Successfully created empty file " + filepath);
         return true;
     }
 };
-#endif // FILEHANDLER_H (guard typically not needed for #pragma once but good practice)
+
+#endif // FILE_HANDLER_H
