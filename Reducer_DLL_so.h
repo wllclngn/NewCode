@@ -6,10 +6,10 @@
 #include <string>
 #include <mutex>
 #include <thread>
-#include <future>
+#include <algorithm>
 #include <iostream>
-#include <cstdlib>
-#include <functional>
+#include <filesystem>
+#include "ThreadPool.h"
 
 // Export macro for cross-platform compatibility
 #if defined(_WIN32) || defined(_WIN64)
@@ -22,49 +22,40 @@
 
 class DLL_so_EXPORT ReducerDLLso {
 public:
-    virtual ~ReducerDLLso() {} // Virtual destructor for polymorphism
+    virtual ~ReducerDLLso() {}
 
-    virtual void reduce(const std::vector<std::pair<std::string, int>>& mappedData, std::map<std::string, int>& reducedData) {
+    virtual void reduce(const std::vector<std::pair<std::string, int>> &mappedData, std::map<std::string, int> &reducedData) {
         std::mutex mutex;
         size_t chunkSize = calculate_dynamic_chunk_size(mappedData.size());
+        size_t numThreads = std::thread::hardware_concurrency();
+        if (numThreads == 0) numThreads = 4; // fallback
 
-        // Launch threads for parallel reduction
-        std::vector<std::future<void>> futures;
+        ThreadPool pool(numThreads, numThreads);
+
         for (size_t i = 0; i < mappedData.size(); i += chunkSize) {
-            futures.push_back(std::async(std::launch::async, [this, &mappedData, &reducedData, &mutex, i, chunkSize]() {
+            pool.enqueueTask([&, i]() {
                 size_t startIdx = i;
                 size_t endIdx = std::min(startIdx + chunkSize, mappedData.size());
                 std::map<std::string, int> localReduce;
-
                 for (size_t j = startIdx; j < endIdx; ++j) {
                     localReduce[mappedData[j].first] += mappedData[j].second;
                 }
-
                 {
                     std::lock_guard<std::mutex> lock(mutex);
-                    for (const auto& kv : localReduce) {
+                    for (const auto &kv : localReduce) {
                         reducedData[kv.first] += kv.second;
                     }
                 }
-            }));
+            });
         }
-
-        // Wait for all threads to finish
-        for (auto& future : futures) {
-            future.get();
-        }
+        pool.shutdown();
     }
 
 protected:
-    // Protected member to allow overriding in derived classes
     virtual size_t calculate_dynamic_chunk_size(size_t totalSize) const {
         size_t numThreads = std::thread::hardware_concurrency();
         size_t defaultChunkSize = 1024;
-
-        if (numThreads == 0) {
-            return defaultChunkSize;
-        }
-
+        if (numThreads == 0) return defaultChunkSize;
         size_t chunkSize = totalSize / numThreads;
         return chunkSize > defaultChunkSize ? chunkSize : defaultChunkSize;
     }

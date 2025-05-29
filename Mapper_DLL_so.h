@@ -11,8 +11,9 @@
 #include <map>
 #include <mutex>
 #include <thread>
-#include <future>
 #include <algorithm>
+#include <filesystem>
+#include "ThreadPool.h"
 
 // Export macro for cross-platform compatibility
 #if defined(_WIN32) || defined(_WIN64)
@@ -22,6 +23,8 @@
 #else
 #define DLL_so_EXPORT
 #endif
+
+namespace fs = std::filesystem;
 
 class DLL_so_EXPORT MapperDLLso {
 public:
@@ -34,38 +37,28 @@ public:
 
     virtual std::string clean_word(const std::string &word) const {
         std::string result;
-
-        // Iterate through each character in the word
         for (char c : word) {
             if (is_valid_char(c)) {
                 result += std::tolower(static_cast<unsigned char>(c));
             }
         }
-
-        // Allow words of any length that are not purely numeric
         if (result.empty() || std::all_of(result.begin(), result.end(), ::isdigit)) {
             return "";
         }
-
         return result;
     }
 
+    // Now using ThreadPool for parallel mapping
     virtual void map_words(const std::vector<std::string> &lines, const std::string &tempFilePath) {
-        // Build out tempFilePath from user input for blank, "", user input directories.
         std::string fullDirPath;
         size_t last_slash_pos = tempFilePath.find_last_of('\\');
-
-        // Check if a backslash was found
-        if (last_slash_pos != std::string::npos) {
-            // Dynamically build out tempFilePath for blank outPutFolder and tempFolder
+        if (last_slash_pos != std::string::npos)
             fullDirPath = tempFilePath.substr(0, last_slash_pos);
-        } else {
+        else {
             last_slash_pos = tempFilePath.find_last_of('/');
-            // Dynamically build out tempFilePath for blank outPutFolder and tempFolder
             fullDirPath = tempFilePath.substr(0, last_slash_pos);
         }
-        
-        // Ensure the temporary folder path is valid
+
         if (!fs::exists(fullDirPath)) {
             report_error("Temporary folder does not exist: " + tempFilePath);
             return;
@@ -75,57 +68,45 @@ public:
             return;
         }
 
-        // Open the output file for writing
         std::ofstream temp_out(tempFilePath);
         if (!temp_out) {
             report_error("Could not open " + tempFilePath + " for writing.");
             return;
         }
-      
-        // Mutex for synchronizing file writes
+
         std::mutex file_mutex;
-
-        // Calculate the optimal chunk size for processing
         size_t chunkSize = calculate_dynamic_chunk_size(lines.size());
+        size_t numThreads = std::thread::hardware_concurrency();
+        if (numThreads == 0) numThreads = 4; // fallback
 
-        // Launch threads for parallel processing
-        std::vector<std::future<void>> futures;
+        ThreadPool pool(numThreads, numThreads);
+
         for (size_t i = 0; i < lines.size(); i += chunkSize) {
-            futures.push_back(std::async(std::launch::async, [this, &lines, &temp_out, &file_mutex, i, chunkSize]() {
+            pool.enqueueTask([&, i]() {
                 size_t startIdx = i;
                 size_t endIdx = std::min(startIdx + chunkSize, lines.size());
                 std::map<std::string, int> localMap;
-
-                // Perform local mapping
                 for (size_t j = startIdx; j < endIdx; ++j) {
                     std::istringstream ss(lines[j]);
                     std::string word;
                     while (ss >> word) {
-                        localMap[clean_word(word)]++;
+                        std::string cleaned = clean_word(word);
+                        if (!cleaned.empty()) localMap[cleaned]++;
                     }
                 }
-
-                // Write the local map to the output file with synchronization
                 {
                     std::lock_guard<std::mutex> lock(file_mutex);
-                    for (const auto& kv : localMap) {
+                    for (const auto &kv : localMap) {
                         temp_out << kv.first << ": " << kv.second << "\n";
                     }
                 }
-            }));
+            });
         }
-
-        // Wait for all threads to finish
-        for (auto& future : futures) {
-            future.get();
-        }
-
-        // Close the output file
+        pool.shutdown();
         temp_out.close();
     }
 
 protected:
-    // Virtual function for reporting errors
     virtual void report_error(const std::string &error_message) const {
         std::cerr << "Error: " << error_message << std::endl;
     }
@@ -133,11 +114,7 @@ protected:
     size_t calculate_dynamic_chunk_size(size_t totalSize) const {
         size_t numThreads = std::thread::hardware_concurrency();
         size_t defaultChunkSize = 1024;
-
-        if (numThreads == 0) {
-            return defaultChunkSize;
-        }
-
+        if (numThreads == 0) return defaultChunkSize;
         size_t chunkSize = totalSize / numThreads;
         return chunkSize > defaultChunkSize ? chunkSize : defaultChunkSize;
     }
