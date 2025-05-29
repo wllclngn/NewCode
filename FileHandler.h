@@ -25,17 +25,17 @@ public:
         return true;
     }
 
-    static bool validate_directory(std::string &folder_path, std::vector<std::string> &file_paths, bool create_if_missing = true) {
+    static bool validate_directory(std::string &folder_path, std::vector<std::string> &file_paths, std::string &input_dir, bool create_if_missing = true) {
         Logger &logger = Logger::getInstance();
         logger.log("Starting directory validation process.");
 
-        // Check if the directory exists
-        if (fs::exists(folder_path)) {
+        // DIRECTORY VALIDATION: EXISTS, DNE
+        if (fs::exists(folder_path) && input_dir.empty()) {
             if (fs::is_directory(folder_path)) {
                 logger.log("Validated directory: " + folder_path);
                 std::cout << "LOG: The directory " << folder_path << " already exists. Proceeding..." << std::endl;
 
-                // Retrieve file paths
+                // GET FILE PATHS FROM USER INPUT
                 try {
                     for (const auto &entry : fs::directory_iterator(folder_path)) {
                         if (entry.is_regular_file()) {
@@ -59,11 +59,31 @@ public:
                 return false;
             }
         }
+        
+        // IF A USER HAS INPUT BLANK outputFolder AND/OR tempFolder, CREATE DIR BASED ON INPUT FOLDER
+        if (folder_path.empty() && !input_dir.empty() && create_if_missing) {
+            logger.log("Folder path is blank. Deriving from original input folder: " + input_dir);
+            try {
+                if (fs::create_directory(input_dir)) {
+                    folder_path = input_dir;
+                    logger.log("Directory created successfully: " + input_dir);
+                    return true;
+                } else {
+                    logger.log("ERROR: Failed to create directory: " + input_dir);
+                    return false;
+                }
+            } catch (const fs::filesystem_error &e) {
+                logger.log("Filesystem error: " + std::string(e.what()));
+                return false;
+            }
 
-        // Directory does not exist
-        if (create_if_missing) {
+        }
+        
+        // IF USER SUPPLIED DIRECTORY, BUT DNE, CREATE BASED ON PATH
+        if (!folder_path.empty() || !create_if_missing) {       
             try {
                 if (fs::create_directory(folder_path)) {
+                    folder_path = input_dir;
                     logger.log("Directory created successfully: " + folder_path);
                     return true;
                 } else {
@@ -74,6 +94,7 @@ public:
                 logger.log("Filesystem error: " + std::string(e.what()));
                 return false;
             }
+
         } else {
             logger.log("Directory does not exist and creation is disabled: " + folder_path);
             return false;
