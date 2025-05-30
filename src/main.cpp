@@ -78,14 +78,18 @@ int main(int argc, char* argv[]) {
                             mapperThreads.emplace_back([&, i]() {
                                 // Simulate mapper logic here
                                 orchestrator.runMapper(tempDir, i, numReducers, {}, 2, 4);
-
-                                if (i == numMappers - 1) { // Signal reducers when the last mapper finishes
-                                    signalReducers(cvReducers, mtxReducers, mapperOutputsReady);
-                                }
                             });
                         }
 
-                        // Launch reducer threads concurrently
+                        // Wait for mappers to complete
+                        for (auto &t : mapperThreads) {
+                            t.join();
+                        }
+
+                        // Signal reducers once all mappers are complete
+                        signalReducers(cvReducers, mtxReducers, mapperOutputsReady);
+
+                        // Launch reducer threads after mappers are complete
                         std::vector<std::thread> reducerThreads;
                         for (int i = 0; i < numReducers; ++i) {
                             reducerThreads.emplace_back([&, i]() {
@@ -96,11 +100,6 @@ int main(int argc, char* argv[]) {
                                 // Simulate reducer logic here
                                 orchestrator.runReducer(outputDir, tempDir, i, 2, 4);
                             });
-                        }
-
-                        // Wait for mappers to complete
-                        for (auto &t : mapperThreads) {
-                            t.join();
                         }
 
                         // Wait for reducers to complete
