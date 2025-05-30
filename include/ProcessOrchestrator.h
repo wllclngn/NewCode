@@ -52,6 +52,9 @@ public:
                             size_t minPoolThreads = DEFAULT_MIN_THREADS,
                             size_t maxPoolThreads = DEFAULT_MAX_THREADS);
 
+    // Moved runFinalReducer to public section
+    void runFinalReducer(const std::string& outputDir, const std::string& tempDir);
+
 private:
     size_t resolveDefaultThreads() const;
     std::string formatThreadCount(size_t count) const;
@@ -75,8 +78,6 @@ private:
                                      size_t minPoolThreads,
                                      size_t maxPoolThreads);
     bool performFinalAggregation_impl(const std::string& outputDir, int numReducers, const std::string& finalOutputFilename) const;
-
-    void runFinalReducer(const std::string& outputDir, const std::string& tempDir);
 };
 
 #endif // PROCESS_ORCHESTRATOR_DLL_H
