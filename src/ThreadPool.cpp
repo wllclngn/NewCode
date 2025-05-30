@@ -1,5 +1,15 @@
-#include "..\include\ThreadPool.h"
-#include "..\include\Logger.h"
+#ifdef _WIN32
+    // Windows (NTFS-like pathing)
+    #include "..\include\ThreadPool.h"
+    #include "..\include\Logger.h"
+#elif defined(__unix__) || defined(__APPLE__) && defined(__MACH__)
+    // UNIX-like systems (Linux, macOS, etc.)
+    #include "../include/ThreadPool.h"
+    #include "../include/Logger.h"
+#else
+    #error "Unsupported operating system. Please check your platform."
+#endif
+
 
 #include <vector>
 #include <queue>

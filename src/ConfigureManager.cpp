@@ -1,6 +1,16 @@
 #include "..\include\ConfigureManager.h"
 #include "..\include\Logger.h"
 
+#ifdef _WIN32
+    #include "..\include\ConfigureManager.h"
+    #include "..\include\Logger.h"
+#elif defined(__unix__) || defined(__APPLE__) && defined(__MACH__)
+    #include "../include/ConfigureManager.h"
+    #include "../include/Logger.h"
+#else
+    #error "Unsupported operating system. Please check your platform."
+#endif
+
 #include <fstream>
 #include <sstream>
 #include <algorithm>

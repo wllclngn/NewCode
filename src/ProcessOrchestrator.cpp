@@ -1,7 +1,16 @@
-#include "..\include\ProcessOrchestrator.h"
-#include "..\include\Logger.h"
-#include "..\include\ERROR_Handler.h"
-#include "..\include\ThreadPool.h"
+#ifdef _WIN32
+    #include "..\include\ProcessOrchestrator.h"
+    #include "..\include\Logger.h"
+    #include "..\include\ERROR_Handler.h"
+    #include "..\include\ThreadPool.h"
+#elif defined(__unix__) || defined(__APPLE__) && defined(__MACH__)
+    #include "../include/ProcessOrchestrator.h"
+    #include "../include/Logger.h"
+    #include "../include/ERROR_Handler.h"
+    #include "../include/ThreadPool.h"
+#else
+    #error "Unsupported operating system. Please check your platform."
+#endif
 
 #include <fstream>
 #include <filesystem>
