@@ -1,7 +1,16 @@
-#include "..\include\Mapper_DLL_so.h"
-#include "..\include\Partitioner.h"
-#include "..\include\Logger.h"
-#include "..\include\ERROR_Handler.h" // Updated include to match the provided header file
+#ifdef _WIN32
+    #include "..\include\Mapper_DLL_so.h"
+    #include "..\include\Partitioner.h"
+    #include "..\include\Logger.h"
+    #include "..\include\ERROR_Handler.h"
+#elif defined(__unix__) || defined(__APPLE__) && defined(__MACH__)
+    #include "../include/Mapper_DLL_so.h"
+    #include "../include/Partitioner.h"
+    #include "../include/Logger.h"
+    #include "../include/ERROR_Handler.h"
+#else
+    #error "Unsupported operating system. Please check your platform."
+#endif
 
 #include <fstream>
 #include <sstream>

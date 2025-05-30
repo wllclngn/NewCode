@@ -1,7 +1,17 @@
-#include "..\include\Reducer_DLL_so.h"
-#include "..\include\ThreadPool.h"
-#include "..\include\ERROR_Handler.h"
-#include "..\include\Logger.h"
+#ifdef _WIN32
+    #include "..\include\Reducer_DLL_so.h"
+    #include "..\include\ThreadPool.h"
+    #include "..\include\ERROR_Handler.h"
+    #include "..\include\Logger.h"
+#elif defined(__unix__) || defined(__APPLE__) && defined(__MACH__)
+    #include "../include/Reducer_DLL_so.h"
+    #include "../include/ThreadPool.h"
+    #include "../include/ERROR_Handler.h"
+    #include "../include/Logger.h"
+#else
+    #error "Unsupported operating system. Please check your platform."
+#endif
+
 
 #include <mutex>
 #include <thread>
