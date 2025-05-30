@@ -15,7 +15,7 @@
     #include "../include/ProcessOrchestrator.h"
     #include "../include/InteractiveMode.h"
 #else
-    #error "Unsupported operating system. Please check your platform."
+    #error "Unsupported operating system. Please utilize Windows, MacOS, or any Linux distribution to operate this C++ program."
 #endif
 
 #include <iostream>

@@ -9,7 +9,7 @@
     #include "../include/ERROR_Handler.h"
     #include "../include/Logger.h"
 #else
-    #error "Unsupported operating system. Please check your platform."
+    #error "Unsupported operating system. Please utilize Windows, MacOS, or any Linux distribution to operate this C++ program."
 #endif
 
 #include <mutex>
