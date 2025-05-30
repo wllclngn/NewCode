@@ -1,12 +1,15 @@
 #ifdef _WIN32
+    // Windows (NTFS-like pathing)
     #include "..\include\ThreadPool.h"
     #include "..\include\Logger.h"
 #elif defined(__unix__) || defined(__APPLE__) && defined(__MACH__)
+    // UNIX-like systems (Linux, macOS, etc.)
     #include "../include/ThreadPool.h"
     #include "../include/Logger.h"
 #else
     #error "Unsupported operating system. Please check your platform."
 #endif
+
 
 #include <vector>
 #include <queue>
@@ -17,6 +20,7 @@
 #include <string>
 #include <atomic>
 
+// Constructor
 ThreadPool::ThreadPool(size_t minThreads, size_t maxThreads)
     : minThreadsCount(minThreads), maxThreadsCount(maxThreads),
       stopFlag(false), shuttingDownFlag(false), activeThreadsCount(0) {
@@ -30,26 +34,12 @@ ThreadPool::ThreadPool(size_t minThreads, size_t maxThreads)
     }
 }
 
+// Destructor
 ThreadPool::~ThreadPool() {
     shutdown();
 }
 
-void ThreadPool::addThread() {
-    std::lock_guard<std::mutex> lock(threadsMutex);
-    if (workerThreads.size() < maxThreadsCount) {
-        workerThreads.emplace_back(&ThreadPool::workerLoop, this);
-    }
-}
-
-void ThreadPool::adjustThreadPoolSize() {
-    std::lock_guard<std::mutex> lock(threadsMutex);
-    if (!stopFlag && !shuttingDownFlag) {
-        if (!taskQueue.empty() && workerThreads.size() < maxThreadsCount) {
-            addThread();
-        }
-    }
-}
-
+// Enqueue a task
 void ThreadPool::enqueueTask(const std::function<void()>& task) {
     if (shuttingDownFlag || stopFlag) return;
 
@@ -61,6 +51,7 @@ void ThreadPool::enqueueTask(const std::function<void()>& task) {
     adjustThreadPoolSize();
 }
 
+// Shutdown the thread pool
 void ThreadPool::shutdown() {
     if (shuttingDownFlag) return;
     shuttingDownFlag = true;
@@ -81,12 +72,78 @@ void ThreadPool::shutdown() {
     Logger::getInstance().log("THREAD_POOL: Shutdown complete. All threads joined.");
 }
 
+// Get the count of active threads
 size_t ThreadPool::getActiveThreads() const {
-    std::lock_guard<std::mutex> lock(threadsMutex); // Ensure threadsMutex is non-const
+    std::lock_guard<std::mutex> lock(threadsMutex);
     return activeThreadsCount;
 }
 
+// Get the number of tasks in the queue
 size_t ThreadPool::getTasksInQueue() const {
-    std::lock_guard<std::mutex> lock(queueMutex); // Ensure queueMutex is non-const
+    std::lock_guard<std::mutex> lock(queueMutex);
     return taskQueue.size();
+}
+
+// Worker loop for each thread
+void ThreadPool::workerLoop() {
+    {
+        std::lock_guard<std::mutex> lock(threadsMutex);
+        activeThreadsCount++;
+    }
+
+    while (true) {
+        std::function<void()> task;
+        {
+            std::unique_lock<std::mutex> lock(queueMutex);
+            condition.wait(lock, [this]() {
+                return stopFlag || !taskQueue.empty();
+            });
+
+            if (stopFlag && taskQueue.empty()) break;
+            if (taskQueue.empty()) continue;
+
+            task = std::move(taskQueue.front());
+            taskQueue.pop();
+        }
+
+        try {
+            task();
+        } catch (const std::exception& e) {
+            Logger::getInstance().log("THREAD_POOL: Exception caught in worker thread: " + std::string(e.what()));
+        } catch (...) {
+            Logger::getInstance().log("THREAD_POOL: Unknown exception caught in worker thread.");
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(threadsMutex);
+        activeThreadsCount--;
+    }
+}
+
+// Add a thread to the pool
+void ThreadPool::addThread() {
+    std::lock_guard<std::mutex> lock(threadsMutex);
+    if (workerThreads.size() < maxThreadsCount) {
+        workerThreads.emplace_back(&ThreadPool::workerLoop, this);
+    }
+}
+
+// Adjust the thread pool size based on workload
+void ThreadPool::adjustThreadPoolSize() {
+    std::lock_guard<std::mutex> lock(threadsMutex);
+    if (!stopFlag && !shuttingDownFlag) {
+        if (!taskQueue.empty() && workerThreads.size() < maxThreadsCount) {
+            if (taskQueue.size() > workerThreads.size() || workerThreads.size() < minThreadsCount) {
+                addThread();
+            }
+        }
+    }
+    if (workerThreads.size() < minThreadsCount && !stopFlag && !shuttingDownFlag) {
+        for (size_t i = workerThreads.size(); i < minThreadsCount; ++i) {
+            if (workerThreads.size() < maxThreadsCount) {
+                addThread();
+            } else break;
+        }
+    }
 }
