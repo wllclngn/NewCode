@@ -9,7 +9,7 @@
     #include "../include/ERROR_Handler.h"
     #include "../include/ThreadPool.h"
 #else
-    #error "Unsupported operating system. Please check your platform."
+    #error "Unsupported operating system. Please utilize Windows, MacOS or any Linux distribution to operate this C++ program."
 #endif
 
 #include <fstream>
@@ -21,7 +21,6 @@
 namespace fs = std::filesystem;
 
 // Implementation of the ProcessOrchestratorDLL class
-
 void ProcessOrchestratorDLL::runFinalReducer(const std::string& outputDir, const std::string& tempDir) {
     Logger::getInstance().log("Starting final reduction...");
 
