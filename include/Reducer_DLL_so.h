@@ -32,12 +32,6 @@ class DLL_so_EXPORT ReducerDLLso {
     size_t maxThreads);
 
 protected:protected:
-    void process_reduce_internal(
-        const std::vector<std::pair<std::string, int>>& mappedData,
-        std::map<std::string, int>& reducedData,
-        size_t minThreads,
-        size_t maxThreads
-    );
 
     size_t calculate_dynamic_chunk_size(size_t totalSize, size_t guideMaxThreads = 0) const;
 };
