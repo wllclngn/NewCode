@@ -1,30 +1,30 @@
-#ifndef ERROR_HANDLER_H
-#define ERROR_HANDLER_H
-
+#pragma once
 #include <string>
 #include <iostream>
 
 class ErrorHandler {
 public:
-    // Singleton instance getter
-    static ErrorHandler& getInstance() {
-        static ErrorHandler instance;
-        return instance;
+    // Updated to accept two arguments: errorMessage (string) and critical (bool)
+    static void reportError(const std::string& errorMessage, bool critical = false) {
+        std::cerr << "[ERROR] " << errorMessage << std::endl;
+        if (critical) {
+            std::cerr << "Critical error encountered. Exiting program." << std::endl;
+            exit(EXIT_FAILURE);
+        }
     }
 
-    // Report an error
-    void reportError(const std::string& errorMessage) {
-        std::cerr << "ERROR: " << errorMessage << std::endl;
+    // Handles missing identifiers gracefully
+    static void handleMissingIdentifier(const std::string& identifier) {
+        std::cerr << "[ERROR] Missing or undeclared identifier: " << identifier << std::endl;
     }
 
-private:
-    // Private constructor to prevent instantiation
-    ErrorHandler() = default;
-    ~ErrorHandler() = default;
+    // Handles invalid types or symbols
+    static void handleInvalidTypeOrSymbol(const std::string& symbol) {
+        std::cerr << "[ERROR] Invalid type or symbol: " << symbol << std::endl;
+    }
 
-    // Delete copy constructor and assignment operator
-    ErrorHandler(const ErrorHandler&) = delete;
-    ErrorHandler& operator=(const ErrorHandler&) = delete;
+    // Logs a general warning
+    static void logWarning(const std::string& warningMessage) {
+        std::cerr << "[WARNING] " << warningMessage << std::endl;
+    }
 };
-
-#endif // ERROR_HANDLER_H
