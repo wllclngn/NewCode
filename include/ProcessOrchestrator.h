@@ -8,7 +8,7 @@
 
 #include "FileHandler.h"   
 #include "Logger.h"        
-#include "ErrorHandler.h"  
+#include "ERROR_Handler.h"  
 #include "Mapper_DLL_so.h" 
 #include "Reducer_DLL_so.h"
 
