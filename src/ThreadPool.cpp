@@ -1,5 +1,5 @@
-#include "ThreadPool.h"
-#include "Logger.h"
+#include "..\include\ThreadPool.h"
+#include "..\include\Logger.h"
 
 ThreadPool::ThreadPool(size_t minThreads, size_t maxThreads)
     : minThreadsCount(minThreads), maxThreadsCount(maxThreads),
