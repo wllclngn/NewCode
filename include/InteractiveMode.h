@@ -11,17 +11,23 @@
 #include <algorithm> // For std::all_of if used by clean_word indirectly
 
 // Project Headers - Ensure these are accessible from your include paths
-#include "ERROR_Handler.h"
-#include "FileHandler.h"
-#include "Logger.h"
-#include "Mapper_DLL_so.h"
-#include "Reducer_DLL_so.h"
+#include ".\ERROR_Handler.h"
+#include ".\FileHandler.h"
+#include ".\Logger.h"
+#include ".\Mapper_DLL_so.h"
+#include ".\Reducer_DLL_so.h"
 
 namespace fs = std::filesystem;
+
+inline bool ends_with(const std::string& str, const std::string& suffix) {
+    return str.size() >= suffix.size() &&
+           str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
+}
 
 // Function to encapsulate the original interactive mode logic
 // Returns 0 on success, non-zero on failure, similar to main's exit codes.
 int runInteractiveWorkflow() {
+    
     Logger::getInstance().configureLogFilePath("application.log"); 
     Logger::getInstance().setPrefix("[INTERACTIVE] "); 
     Logger::getInstance().log("WELCOME TO MAPREDUCE (Interactive Mode)...");
