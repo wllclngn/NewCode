@@ -1,8 +1,8 @@
 #ifdef _WIN32
-    #include "..\include\ProcessOrchestrator.h"
-    #include "..\include\Logger.h"
-    #include "..\include\ERROR_Handler.h"
-    #include "..\include\ThreadPool.h"
+    #include "..\\include\\ProcessOrchestrator.h"
+    #include "..\\include\\Logger.h"
+    #include "..\\include\\ERROR_Handler.h"
+    #include "..\\include\\ThreadPool.h"
 #elif defined(__unix__) || defined(__APPLE__) && defined(__MACH__)
     #include "../include/ProcessOrchestrator.h"
     #include "../include/Logger.h"
@@ -43,7 +43,7 @@ void ProcessOrchestratorDLL::runFinalReducer(const std::string& outputDir, const
     // Write final results to output directory
     std::ofstream outFile(outputDir + "/final_results.txt");
     if (!outFile.is_open()) {
-            Logger::getInstance().log("ERROR: Could not open final_results.txt for writing.", Logger::Level::ERROR);
+        Logger::getInstance().log("ERROR: Could not open final_results.txt for writing.", Logger::Level::ERROR);
         return;
     }
 
@@ -52,4 +52,23 @@ void ProcessOrchestratorDLL::runFinalReducer(const std::string& outputDir, const
     }
 
     Logger::getInstance().log("Final reduction completed.");
+}
+
+// Example of a function with unused parameters — updated to use [[maybe_unused]]
+void ProcessOrchestratorDLL::runMapper([[maybe_unused]] const std::string& tempDir,
+                                       [[maybe_unused]] int mapperId,
+                                       [[maybe_unused]] int numReducers,
+                                       [[maybe_unused]] const std::vector<std::string>& inputFilePaths,
+                                       [[maybe_unused]] size_t minPoolThreads,
+                                       [[maybe_unused]] size_t maxPoolThreads) {
+    Logger::getInstance().log("Running mapper (simulation)...");
+}
+
+// Another example of a function with unused parameters — updated to use [[maybe_unused]]
+void ProcessOrchestratorDLL::runReducer([[maybe_unused]] const std::string& outputDir,
+                                        [[maybe_unused]] const std::string& tempDir,
+                                        [[maybe_unused]] int reducerId,
+                                        [[maybe_unused]] size_t minPoolThreads,
+                                        [[maybe_unused]] size_t maxPoolThreads) {
+    Logger::getInstance().log("Running reducer (simulation)...");
 }

@@ -34,6 +34,22 @@ ThreadPool::~ThreadPool() {
     shutdown();
 }
 
+void ThreadPool::addThread() {
+    std::lock_guard<std::mutex> lock(threadsMutex);
+    if (workerThreads.size() < maxThreadsCount) {
+        workerThreads.emplace_back(&ThreadPool::workerLoop, this);
+    }
+}
+
+void ThreadPool::adjustThreadPoolSize() {
+    std::lock_guard<std::mutex> lock(threadsMutex);
+    if (!stopFlag && !shuttingDownFlag) {
+        if (!taskQueue.empty() && workerThreads.size() < maxThreadsCount) {
+            addThread();
+        }
+    }
+}
+
 void ThreadPool::enqueueTask(const std::function<void()>& task) {
     if (shuttingDownFlag || stopFlag) return;
 
