@@ -26,7 +26,7 @@ public:
         return true;
     }
 
-    static bool validate_directory(std::string &folder_path, std::vector<std::string> &file_paths, std::string &input_dir, bool create_if_missing = true) {
+    static bool validate_directory(std::string &folder_path, std::vector<std::string> &file_paths, const std::string &input_dir, bool create_if_missing = true) {
         Logger &logger = Logger::getInstance();
         logger.log("Starting directory validation process.");
 

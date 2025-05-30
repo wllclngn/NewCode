@@ -71,12 +71,6 @@ $includeSearchPaths = @(
 )
 
 $srcDir = "src"
-$outputMapperDLL = "MapperLib.dll"
-$mapperSources = "$srcDir/Mapper_DLL_so.cpp"
-
-$outputReducerDLL = "ReducerLib.dll"
-$reducerSources = "$srcDir/Reducer_DLL_so.cpp"
-
 $outputBinary = "MapReduce.exe"
 $executableSources = @(
     "$srcDir/main.cpp",
@@ -110,14 +104,6 @@ if (-not ($useMSVC -or $useGpp -or $useCMake)) {
 # Clean up previous builds (common for direct builds)
 if ($useMSVC -or $useGpp) {
     Write-Host "Cleaning up previous direct build artifacts..." -ForegroundColor Yellow
-    Clean-File -FilePath $outputMapperDLL
-    Clean-File -FilePath "MapperLib.lib" # MSVC import lib
-    Clean-File -FilePath "libMapperLib.dll.a" # g++ import lib
-
-    Clean-File -FilePath $outputReducerDLL
-    Clean-File -FilePath "ReducerLib.lib" # MSVC import lib
-    Clean-File -FilePath "libReducerLib.dll.a" # g++ import lib
-
     Clean-File -FilePath $outputBinary
     Get-ChildItem -Path . -Include "*.obj", "*.o", "*.exp" -File -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
 } elseif ($useCMake) {
@@ -138,31 +124,23 @@ if ($useMSVC) {
     }
     Write-Host "Attempting to build with MSVC (cl.exe)..." -ForegroundColor Cyan
 
-    $msvcCommonCompileFlags = "/EHsc /std:c++17 /MT /nologo /W4"
+    $msvcCommonCompileFlags = "/EHsc /std:c++20 /MT /nologo /W4"
     $msvcIncludeDirFlag = ($includeSearchPaths | ForEach-Object { "/I$_" }) -join " "
     $msvcLibDirFlag = ($libSearchPaths | ForEach-Object { "/LIBPATH:$_" }) -join " "
     $exportDefineMSVC = "/DDLL_so_EXPORTS"
 
-    # 1. Compile MapperLib.dll
-    Write-Host "Compiling $outputMapperDLL..."
-    $msvcMapperCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $exportDefineMSVC /LD $mapperSources /link /OUT:$outputMapperDLL /IMPLIB:MapperLib.lib $msvcLibDirFlag"
-    if ((Execute-Command-With-MSVCEnv -MSVCBatchFile $selectedMSVCBatch -Command $msvcMapperCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputMapperDLL. Exiting." -ForegroundColor Red; exit 1 }
-
-    # 2. Compile ReducerLib.dll
-    Write-Host "Compiling $outputReducerDLL..."
-    $msvcReducerCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $exportDefineMSVC /LD $reducerSources /link /OUT:$outputReducerDLL /IMPLIB:ReducerLib.lib $msvcLibDirFlag"
-    if ((Execute-Command-With-MSVCEnv -MSVCBatchFile $selectedMSVCBatch -Command $msvcReducerCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputReducerDLL. Exiting." -ForegroundColor Red; exit 1 }
-
-    # 3. Compile MapReduce.exe
+    # Compile MapReduce.exe
     Write-Host "Compiling $outputBinary..."
     $sourcesString = $executableSources -join ' '
-    $msvcBinaryCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $sourcesString /Fe:$outputBinary MapperLib.lib ReducerLib.lib $msvcLibDirFlag"
-    if ((Execute-Command-With-MSVCEnv -MSVCBatchFile $selectedMSVCBatch -Command $msvcBinaryCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputBinary. Exiting." -ForegroundColor Red; exit 1 }
+    $msvcBinaryCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $sourcesString /Fe:$outputBinary /link $msvcLibDirFlag MapperLib.lib ReducerLib.lib"
+
+    if ((Execute-Command-With-MSVCEnv -MSVCBatchFile $selectedMSVCBatch -Command $msvcBinaryCommand) -ne 0) {
+        Write-Host "ERROR: MSVC failed to compile $outputBinary. Exiting." -ForegroundColor Red
+        exit 1
+    }
 
     Write-Host "Build completed successfully using MSVC!" -ForegroundColor Green
     Write-Host "  - Executable Binary: .\$outputBinary" -ForegroundColor Cyan
-    Write-Host "  - Mapper Library: .\$outputMapperDLL (Import: .\MapperLib.lib)" -ForegroundColor Cyan
-    Write-Host "  - Reducer Library: .\$outputReducerDLL (Import: .\ReducerLib.lib)" -ForegroundColor Cyan
     exit 0
 }
 
@@ -173,17 +151,7 @@ if ($useGpp) {
     $gppIncludeDirFlag = ($includeSearchPaths | ForEach-Object { "-I$_" }) -join " "
     $gppLibDirFlag = ($libSearchPaths | ForEach-Object { "-L$_" }) -join " "
 
-    # 1. Compile MapperLib.dll
-    Write-Host "Compiling $outputMapperDLL..."
-    $gppMapperCommand = "g++ -std=c++17 -Wall -Wextra -O2 -shared $gppIncludeDirFlag $mapperSources -o $outputMapperDLL -Wl,--out-implib,libMapperLib.dll.a $gppLibDirFlag"
-    if ((Execute-Command -Command $gppMapperCommand) -ne 0) { Write-Host "ERROR: g++ failed to compile $outputMapperDLL. Exiting." -ForegroundColor Red; exit 1 }
-
-    # 2. Compile ReducerLib.dll
-    Write-Host "Compiling $outputReducerDLL..."
-    $gppReducerCommand = "g++ -std=c++17 -Wall -Wextra -O2 -shared $gppIncludeDirFlag $reducerSources -o $outputReducerDLL -Wl,--out-implib,libReducerLib.dll.a $gppLibDirFlag"
-    if ((Execute-Command -Command $gppReducerCommand) -ne 0) { Write-Host "ERROR: g++ failed to compile $outputReducerDLL. Exiting." -ForegroundColor Red; exit 1 }
-
-    # 3. Compile MapReduce.exe
+    # Compile MapReduce.exe
     Write-Host "Compiling $outputBinary..."
     $sourcesString = $executableSources -join ' '
     $gppBinaryCommand = "g++ -std=c++17 -Wall -Wextra -O2 $gppIncludeDirFlag $sourcesString -o $outputBinary -L. -lMapperLib -lReducerLib $gppLibDirFlag"
@@ -191,8 +159,6 @@ if ($useGpp) {
 
     Write-Host "Build completed successfully using g++!" -ForegroundColor Green
     Write-Host "  - Executable Binary: .\$outputBinary" -ForegroundColor Cyan
-    Write-Host "  - Mapper Library: .\$outputMapperDLL (Import: .\libMapperLib.dll.a)" -ForegroundColor Cyan
-    Write-Host "  - Reducer Library: .\$outputReducerDLL (Import: .\libReducerLib.dll.a)" -ForegroundColor Cyan
     exit 0
 }
 
