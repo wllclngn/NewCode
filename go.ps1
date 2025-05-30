@@ -1,4 +1,4 @@
-# PowerShell Script to Compile the MapReduce Project
+# PowerShell Script to Compile the NewCode Project
 # Priority: 1. MSVC (cl.exe), 2. g++, 3. CMake
 
 # Function to check if a command exists
@@ -43,8 +43,8 @@ function Setup-MSVCEnvironment {
         Write-Host "Setting up MSVC environment for x64 using $selectedPath..."
         & cmd /c "`"$selectedPath`""
     } else {
-        Write-Host "INFO: vcvars64.bat not found in common locations. MSVC might not be fully configured if cl.exe is found via PATH only." -ForegroundColor Yellow
-        # Not exiting here, as cl.exe might still be in PATH from a different setup
+        Write-Host "ERROR: vcvars64.bat not found. Ensure Visual Studio Build Tools are installed." -ForegroundColor Red
+        exit 1
     }
 }
 
@@ -53,9 +53,20 @@ Write-Host "Starting the build process..." -ForegroundColor Cyan
 Write-Host "Build Tool Priority: 1. MSVC (cl.exe), 2. g++, 3. CMake" -ForegroundColor Cyan
 
 # Define project structure and output names for direct compilation
-$includeDir = "include"
-$srcDir = "src"
+$libSearchPaths = @(
+    '"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.43.34808\lib\x64"',
+    '"C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\ucrt\x64"',
+    '"C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x64"'
+)
 
+$includeSearchPaths = @(
+    '"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.43.34808\include"',
+    '"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt"',
+    '"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um"',
+    '"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\shared"'
+)
+
+$srcDir = "src"
 $outputMapperDLL = "MapperLib.dll"
 $mapperSources = "$srcDir/Mapper_DLL_so.cpp"
 
@@ -110,7 +121,6 @@ if ($useMSVC -or $useGpp) {
     }
 }
 
-
 # --- Build Logic ---
 
 # Build using MSVC (Priority 1)
@@ -119,92 +129,28 @@ if ($useMSVC) {
     Setup-MSVCEnvironment # Attempt to set up full environment
 
     $msvcCommonCompileFlags = "/EHsc /std:c++17 /MT /nologo /W4"
-    $msvcIncludeDirFlag = "/I$includeDir"
+    $msvcIncludeDirFlag = ($includeSearchPaths | ForEach-Object { "/I$_" }) -join " "
+    $msvcLibDirFlag = ($libSearchPaths | ForEach-Object { "/LIBPATH:$_" }) -join " "
     $exportDefineMSVC = "/DDLL_so_EXPORTS"
 
     # 1. Compile MapperLib.dll
     Write-Host "Compiling $outputMapperDLL..."
-    $msvcMapperCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $exportDefineMSVC /LD $mapperSources /link /OUT:$outputMapperDLL /IMPLIB:MapperLib.lib"
+    $msvcMapperCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $exportDefineMSVC /LD $mapperSources /link /OUT:$outputMapperDLL /IMPLIB:MapperLib.lib $msvcLibDirFlag"
     if ((Execute-Command -Command $msvcMapperCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputMapperDLL. Exiting." -ForegroundColor Red; exit 1 }
 
     # 2. Compile ReducerLib.dll
     Write-Host "Compiling $outputReducerDLL..."
-    $msvcReducerCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $exportDefineMSVC /LD $reducerSources /link /OUT:$outputReducerDLL /IMPLIB:ReducerLib.lib"
+    $msvcReducerCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $exportDefineMSVC /LD $reducerSources /link /OUT:$outputReducerDLL /IMPLIB:ReducerLib.lib $msvcLibDirFlag"
     if ((Execute-Command -Command $msvcReducerCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputReducerDLL. Exiting." -ForegroundColor Red; exit 1 }
 
     # 3. Compile MapReduce.exe
     Write-Host "Compiling $outputBinary..."
     $sourcesString = $executableSources -join ' '
-    $msvcBinaryCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $sourcesString /Fe:$outputBinary MapperLib.lib ReducerLib.lib"
+    $msvcBinaryCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $sourcesString /Fe:$outputBinary MapperLib.lib ReducerLib.lib $msvcLibDirFlag"
     if ((Execute-Command -Command $msvcBinaryCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputBinary. Exiting." -ForegroundColor Red; exit 1 }
 
     Write-Host "Build completed successfully using MSVC!" -ForegroundColor Green
     Write-Host "  - Executable Binary: .\$outputBinary" -ForegroundColor Cyan
     Write-Host "  - Mapper Library: .\$outputMapperDLL (Import: .\MapperLib.lib)" -ForegroundColor Cyan
     Write-Host "  - Reducer Library: .\$outputReducerDLL (Import: .\ReducerLib.lib)" -ForegroundColor Cyan
-}
-# Build using g++ (Priority 2)
-elseif ($useGpp) {
-    Write-Host "MSVC not used or failed. Attempting to build with g++..." -ForegroundColor Cyan
-    Write-Host "Ensure MinGW g++ bin directory is in your PATH."
-
-    $gppCommonCompileFlags = "-std=c++17 -Wall -Wextra -pthread"
-    $gppIncludeDirFlag = "-I$includeDir"
-    $exportDefineGPP = "-DDLL_so_EXPORTS"
-
-    # 1. Compile MapperLib.dll
-    $outputMapperImportLib_gpp = "libMapperLib.dll.a"
-    Write-Host "Compiling $outputMapperDLL (and $outputMapperImportLib_gpp)..."
-    $gppMapperCommand = "g++ $gppCommonCompileFlags $gppIncludeDirFlag $exportDefineGPP -shared -fPIC -o $outputMapperDLL $mapperSources -Wl,--out-implib,$outputMapperImportLib_gpp"
-    if ((Execute-Command -Command $gppMapperCommand) -ne 0) { Write-Host "ERROR: g++ failed to compile $outputMapperDLL. Exiting." -ForegroundColor Red; exit 1 }
-
-    # 2. Compile ReducerLib.dll
-    $outputReducerImportLib_gpp = "libReducerLib.dll.a"
-    Write-Host "Compiling $outputReducerDLL (and $outputReducerImportLib_gpp)..."
-    $gppReducerCommand = "g++ $gppCommonCompileFlags $gppIncludeDirFlag $exportDefineGPP -shared -fPIC -o $outputReducerDLL $reducerSources -Wl,--out-implib,$outputReducerImportLib_gpp"
-    if ((Execute-Command -Command $gppReducerCommand) -ne 0) { Write-Host "ERROR: g++ failed to compile $outputReducerDLL. Exiting." -ForegroundColor Red; exit 1 }
-
-    # 3. Compile MapReduce.exe
-    Write-Host "Compiling $outputBinary..."
-    $sourcesString = $executableSources -join ' '
-    $gppBinaryCommand = "g++ $gppCommonCompileFlags $gppIncludeDirFlag -o $outputBinary $sourcesString $outputMapperImportLib_gpp $outputReducerImportLib_gpp"
-    if ((Execute-Command -Command $gppBinaryCommand) -ne 0) { Write-Host "ERROR: g++ failed to compile $outputBinary. Exiting." -ForegroundColor Red; exit 1 }
-
-    Write-Host "Build completed successfully using g++!" -ForegroundColor Green
-    Write-Host "  - Executable Binary: .\$outputBinary" -ForegroundColor Cyan
-    Write-Host "  - Mapper Library: .\$outputMapperDLL (Import: .\$outputMapperImportLib_gpp)" -ForegroundColor Cyan
-    Write-Host "  - Reducer Library: .\$outputReducerDLL (Import: .\$outputReducerImportLib_gpp)" -ForegroundColor Cyan
-}
-# Build using CMake (Priority 3)
-elseif ($useCMake) {
-    Write-Host "Neither MSVC nor g++ used or failed. Attempting to build with CMake..." -ForegroundColor Cyan
-    Write-Host "Ensure you have a valid CMakeLists.txt in the project root." -ForegroundColor Yellow
-
-    if (-not (Test-Path "CMakeLists.txt")) {
-        Write-Host "ERROR: CMakeLists.txt not found in the current directory. Cannot proceed with CMake build." -ForegroundColor Red
-        exit 1
-    }
-    
-    # Create build directory if it doesn't exist
-    if (-not (Test-Path "build")) {
-        New-Item -ItemType Directory -Path "build" | Out-Null
-    }
-
-    # Generate build system
-    Write-Host "Configuring CMake project..."
-    $cmakeGenerateCommand = "cmake -S . -B build" # Assuming CMakeLists.txt is in current dir ('.')
-    if ((Execute-Command -Command $cmakeGenerateCommand) -ne 0) { Write-Host "ERROR: CMake configuration failed. Exiting." -ForegroundColor Red; exit 1 }
-
-    # Build the project
-    Write-Host "Building CMake project..."
-    $cmakeBuildCommand = "cmake --build build"
-    if ((Execute-Command -Command $cmakeBuildCommand) -ne 0) { Write-Host "ERROR: CMake build failed. Exiting." -ForegroundColor Red; exit 1 }
-
-    Write-Host "Build process completed successfully using CMake!" -ForegroundColor Green
-    Write-Host "  - Build artifacts are located in the 'build' directory." -ForegroundColor Cyan
-    Write-Host "    (Check CMakeLists.txt for specific output locations of executables/libraries)"
-} else {
-    # This case should not be reached if the initial tool check is correct.
-    Write-Host "ERROR: No suitable build tool was successfully used." -ForegroundColor Red
-    exit 1
 }

@@ -67,12 +67,10 @@ private:
         auto now = std::chrono::system_clock::now();
         auto in_time_t = std::chrono::system_clock::to_time_t(now);
         std::ostringstream ss;
-        // For MSVC, std::localtime might require _s version.
-        // std::tm buf;
-        // localtime_s(&buf, &in_time_t);
-        // ss << std::put_time(&buf, "%Y-%m-%d %H:%M:%S");
-        // For standard C++ (POSIX, MinGW):
-        ss << std::put_time(std::localtime(&in_time_t), "%Y-%m-%d %H:%M:%S");
+
+        std::tm timeinfo;
+        localtime_s(&timeinfo, &rawtime);
+        
         return ss.str();
     }
 

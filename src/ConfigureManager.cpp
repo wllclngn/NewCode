@@ -1,5 +1,5 @@
-#include "ConfigManager.h"
-#include "Logger.h"
+#include "..\include\ConfigManager.h"
+#include "..\include\Logger.h"
 #include <fstream>
 #include <sstream>
 #include <algorithm>

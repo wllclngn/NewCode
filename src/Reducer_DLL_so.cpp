@@ -1,7 +1,7 @@
-#include "Reducer_DLL_so.h"
-#include "ThreadPool.h"
-#include "ErrorHandler.h"
-#include "Logger.h"
+#include "..\include\Reducer_DLL_so.h"
+#include "..\include\ThreadPool.h"
+#include "..\include\ErrorHandler.h"
+#include "..\include\Logger.h"
 
 #include <mutex>
 #include <thread>

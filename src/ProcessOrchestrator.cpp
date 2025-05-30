@@ -1,7 +1,7 @@
-#include "ProcessOrchestrator.h"
-#include "Logger.h"
-#include "ErrorHandler.h"
-#include "ThreadPool.h"
+#include "..\include\ProcessOrchestrator.h"
+#include "..\include\Logger.h"
+#include "..\include\ErrorHandler.h"
+#include "..\include\ThreadPool.h"
 
 #include <vector>
 #include <thread>
