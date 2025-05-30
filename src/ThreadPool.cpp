@@ -1,121 +1,70 @@
 #include "..\include\ThreadPool.h"
 #include "..\include\Logger.h"
 
-ThreadPool::ThreadPool(size_t minThreads, size_t maxThreads)
-    : minThreadsCount(minThreads), maxThreadsCount(maxThreads),
-      activeThreadsCount(0), stopFlag(false), shuttingDownFlag(false) {
-    if (minThreadsCount == 0) minThreadsCount = 1;
-    if (maxThreadsCount < minThreadsCount) maxThreadsCount = minThreadsCount;
+#pragma once
 
-    Logger::getInstance().log("THREAD_POOL: Initializing with MinThreads=" + std::to_string(minThreadsCount) +
-                              ", MaxThreads=" + std::to_string(maxThreadsCount));
-    for (size_t i = 0; i < minThreadsCount; ++i) {
-        addThread();
-    }
-}
+#include <vector>
+#include <queue>
+#include <thread>
+#include <mutex>
+#include <condition_variable>
+#include <functional>
+#include <string>
+#include <atomic>
 
-ThreadPool::~ThreadPool() {
-    shutdown();
-}
+class ThreadPool {
+public:
+    // Constructor: Initializes the thread pool with min and max thread counts
+    ThreadPool(size_t minThreads, size_t maxThreads);
 
-void ThreadPool::enqueueTask(const std::function<void()>& task) {
-    if (shuttingDownFlag || stopFlag) return;
+    // Destructor: Gracefully shuts down the thread pool
+    ~ThreadPool();
 
-    {
-        std::unique_lock<std::mutex> lock(queueMutex);
-        taskQueue.push(task);
-    }
-    condition.notify_one();
-    adjustThreadPoolSize();
-}
+    // Enqueue a task into the thread pool
+    void enqueueTask(const std::function<void()>& task);
 
-void ThreadPool::shutdown() {
-    if (shuttingDownFlag) return;
-    shuttingDownFlag = true;
+    // Shutdown the thread pool and wait for all threads to complete
+    void shutdown();
 
-    Logger::getInstance().log("THREAD_POOL: Shutdown initiated. Waiting for tasks and threads to complete.");
-    {
-        std::unique_lock<std::mutex> lock(queueMutex);
-        stopFlag = true;
-    }
-    condition.notify_all();
+    // Get the count of currently active threads
+    size_t getActiveThreads() const;
 
-    for (std::thread& thread : workerThreads) {
-        if (thread.joinable()) {
-            thread.join();
-        }
-    }
-    workerThreads.clear();
-    Logger::getInstance().log("THREAD_POOL: Shutdown complete. All threads joined.");
-}
+    // Get the number of tasks remaining in the queue
+    size_t getTasksInQueue() const;
 
-size_t ThreadPool::getActiveThreads() const {
-    std::lock_guard<std::mutex> lock(threadsMutex);
-    return activeThreadsCount;
-}
+private:
+    // Worker function for each thread in the pool
+    void workerLoop();
 
-size_t ThreadPool::getTasksInQueue() const {
-    std::lock_guard<std::mutex> lock(queueMutex);
-    return taskQueue.size();
-}
+    // Dynamically add a thread to the pool if needed
+    void addThread();
 
-void ThreadPool::workerLoop() {
-    {
-        std::lock_guard<std::mutex> lock(threadsMutex);
-        activeThreadsCount++;
-    }
+    // Adjust the thread pool size based on workload
+    void adjustThreadPoolSize();
 
-    while (true) {
-        std::function<void()> task;
-        {
-            std::unique_lock<std::mutex> lock(queueMutex);
-            condition.wait(lock, [this]() {
-                return stopFlag || !taskQueue.empty();
-            });
+    // Mutex for synchronizing access to the task queue
+    mutable std::mutex queueMutex;
 
-            if (stopFlag && taskQueue.empty()) break;
-            if (taskQueue.empty()) continue;
+    // Mutex for synchronizing access to the thread pool
+    mutable std::mutex threadsMutex;
 
-            task = std::move(taskQueue.front());
-            taskQueue.pop();
-        }
+    // Condition variable for task scheduling
+    std::condition_variable condition;
 
-        try {
-            task();
-        } catch (const std::exception& e) {
-            Logger::getInstance().log("THREAD_POOL: Exception caught in worker thread: " + std::string(e.what()));
-        } catch (...) {
-            Logger::getInstance().log("THREAD_POOL: Unknown exception caught in worker thread.");
-        }
-    }
+    // Task queue to hold pending tasks
+    std::queue<std::function<void()>> taskQueue;
 
-    {
-        std::lock_guard<std::mutex> lock(threadsMutex);
-        activeThreadsCount--;
-    }
-}
+    // Vector to store worker threads
+    std::vector<std::thread> workerThreads;
 
-void ThreadPool::addThread() {
-    std::lock_guard<std::mutex> lock(threadsMutex);
-    if (workerThreads.size() < maxThreadsCount) {
-        workerThreads.emplace_back(&ThreadPool::workerLoop, this);
-    }
-}
+    // Minimum and maximum thread counts
+    size_t minThreadsCount;
+    size_t maxThreadsCount;
 
-void ThreadPool::adjustThreadPoolSize() {
-    std::lock_guard<std::mutex> lock(threadsMutex);
-    if (!stopFlag && !shuttingDownFlag) {
-        if (!taskQueue.empty() && workerThreads.size() < maxThreadsCount) {
-            if (taskQueue.size() > workerThreads.size() || workerThreads.size() < minThreadsCount) {
-                addThread();
-            }
-        }
-    }
-    if (workerThreads.size() < minThreadsCount && !stopFlag && !shuttingDownFlag) {
-        for (size_t i = workerThreads.size(); i < minThreadsCount; ++i) {
-            if (workerThreads.size() < maxThreadsCount) {
-                addThread();
-            } else break;
-        }
-    }
-}
+    // Active thread count
+    std::atomic<size_t> activeThreadsCount;
+
+    // Flags for stopping and shutting down the thread pool
+    std::atomic<bool> stopFlag;
+    std::atomic<bool> shuttingDownFlag;
+};
