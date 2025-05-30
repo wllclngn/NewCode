@@ -1,7 +1,7 @@
-#include "Mapper_DLL_so.h"
-#include "Partitioner.h"
-#include "Logger.h"
-#include "ErrorHandler.h"
+#include "..\include\Mapper_DLL_so.h"
+#include "..\include\Partitioner.h"
+#include "..\include\Logger.h"
+#include "..\include\ErrorHandler.h"
 
 #include <fstream>
 #include <sstream>
