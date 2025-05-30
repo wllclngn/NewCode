@@ -11,13 +11,13 @@
 #include <cstdlib>
 #include <stdexcept>
 
-#include "../include/ERROR_Handler.h"
-#include "../include/FileHandler.h"
-#include "../include/Logger.h"
-#include "../include/Mapper_DLL_so.h"
-#include "../include/Reducer_DLL_so.h"
-#include "../include/ProcessOrchestrator.h"
-#include "../include/InteractiveMode.h"
+#include "..\include\ERROR_Handler.h"
+#include "..\include\FileHandler.h"
+#include "..\include\Logger.h"
+#include "..\include\Mapper_DLL_so.h"
+#include "..\include\Reducer_DLL_so.h"
+#include "..\include\ProcessOrchestrator.h"
+#include "..\include\InteractiveMode.h"
 
 namespace fs = std::filesystem;
 

@@ -1,7 +1,7 @@
-#include "..\\include\\Reducer_DLL_so.h"
-#include "..\\include\\ThreadPool.h"
-#include "..\\include\\ERROR_Handler.h"
-#include "..\\include\\Logger.h"
+#include "..\include\Reducer_DLL_so.h"
+#include "..\include\ThreadPool.h"
+#include "..\include\ERROR_Handler.h"
+#include "..\include\Logger.h"
 
 #include <mutex>
 #include <thread>
@@ -11,29 +11,35 @@
 #include <string>
 #include <cstddef>
 
-void ReducerDLLso::process_reduce_internal(
+void ReducerDLLso::reduce(
     const std::vector<std::pair<std::string, int>>& mappedData,
     std::map<std::string, int>& reducedData,
-    size_t minThreads,
-    size_t maxThreads) {    const std::vector<std::pair<std::string, int>>& mappedData,
-    std::map<std::string, int>& reducedData,
     size_t minPoolThreadsConfig,
-    size_t maxPoolThreadsConfig) {
-    size_t actualMinThreads = minPoolThreadsConfig == 0 ? std::thread::hardware_concurrency() : minPoolThreadsConfig;
-    if (actualMinThreads == 0) actualMinThreads = FALLBACK_REDUCE_THREAD_COUNT;
-
-    size_t actualMaxThreads = maxPoolThreadsConfig == 0 ? actualMinThreads : maxPoolThreadsConfig;
-    if (actualMaxThreads < actualMinThreads) actualMaxThreads = actualMinThreads;
-
-    Logger::getInstance().log("ReducerDLLso: Starting reduction.");
-
-    process_reduce_internal(mappedData, reducedData, actualMinThreads, actualMaxThreads);
-    Logger::getInstance().log("ReducerDLLso: Finished reduction.");
+    size_t maxPoolThreadsConfig
+) {
+    process_reduce_internal(mappedData, reducedData, minPoolThreadsConfig, maxPoolThreadsConfig);
 }
 
 void ReducerDLLso::process_reduce_internal(
     const std::vector<std::pair<std::string, int>>& mappedData,
     std::map<std::string, int>& reducedData,
     size_t minThreads,
-    size_t maxThreads) {
+    size_t maxThreads
+) {
+    // Validate thread configurations
+    size_t actualMinThreads = (minThreads == 0) ? std::thread::hardware_concurrency() : minThreads;
+    if (actualMinThreads == 0) actualMinThreads = 2; // Fallback value
+
+    size_t actualMaxThreads = (maxThreads == 0) ? actualMinThreads : maxThreads;
+    if (actualMaxThreads < actualMinThreads) actualMaxThreads = actualMinThreads;
+
+    Logger::getInstance().log("ReducerDLLso: Starting reduction with threads: " +
+                              std::to_string(actualMinThreads) + " to " + std::to_string(actualMaxThreads));
+
+    // Perform reduction logic here
+    for (const auto& pair : mappedData) {
+        reducedData[pair.first] += pair.second;
+    }
+
+    Logger::getInstance().log("ReducerDLLso: Reduction completed.");
 }
