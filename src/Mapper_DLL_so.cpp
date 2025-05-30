@@ -1,7 +1,7 @@
 #include "..\include\Mapper_DLL_so.h"
 #include "..\include\Partitioner.h"
 #include "..\include\Logger.h"
-#include "..\include\ErrorHandler.h"
+#include "..\include\ERROR_Handler.h"
 
 #include <fstream>
 #include <sstream>
@@ -9,8 +9,8 @@
 #include <string>
 #include <unordered_map>
 
-Mapper::Mapper(Logger& loggerRef, ErrorHandler& errorHandlerRef)
-    : logger(loggerRef), errorHandler(errorHandlerRef) {
+Mapper::Mapper(Logger& loggerRef, ErrorHandler& ErrorHandlerRef)
+    : logger(loggerRef), ErrorHandler(ErrorHandlerRef) {
     this->logger.log("Mapper instance created.", Logger::Level::DEBUG);
 }
 
@@ -40,7 +40,7 @@ bool Mapper::exportPartitionedData(const std::string& tempDir, const std::vector
         std::string filePath = tempDir + "/partition_" + std::to_string(i) + ".txt";
         reducerFiles[i].open(filePath, std::ios::app);
         if (!reducerFiles[i].is_open()) {
-            errorHandler.logError("Mapper: Could not open partition file for reducer " + std::to_string(i) + ": " + filePath);
+            ErrorHandler.logError("Mapper: Could not open partition file for reducer " + std::to_string(i) + ": " + filePath);
             return false;
         }
     }
@@ -55,7 +55,7 @@ bool Mapper::exportPartitionedData(const std::string& tempDir, const std::vector
     for (auto& [_, outFile] : reducerFiles) {
         outFile.close();
         if (outFile.fail()) {
-            errorHandler.logError("Mapper: Failed to properly close partition file.");
+            ErrorHandler.logError("Mapper: Failed to properly close partition file.");
             return false;
         }
     }

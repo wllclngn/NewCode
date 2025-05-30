@@ -1,6 +1,6 @@
 #include "..\include\ProcessOrchestrator.h"
 #include "..\include\Logger.h"
-#include "..\include\ErrorHandler.h"
+#include "..\include\ERROR_Handler.h"
 #include "..\include\ThreadPool.h"
 
 #include <vector>

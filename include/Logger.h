@@ -68,9 +68,11 @@ private:
         auto in_time_t = std::chrono::system_clock::to_time_t(now);
         std::ostringstream ss;
 
+        // Declare and initialize rawtime
         std::tm timeinfo;
-        localtime_s(&timeinfo, &rawtime);
-        
+        localtime_s(&timeinfo, &in_time_t); // Use in_time_t, not undeclared rawtime
+
+        ss << std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S");
         return ss.str();
     }
 
@@ -79,5 +81,3 @@ private:
     std::string logPrefix_;   // Store a prefix for log messages
     std::mutex mutex_;        // Mutex to protect file access and prefix changes
 };
-
-#endif // LOGGER_H (guard typically not needed for #pragma once but good practice)
