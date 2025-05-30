@@ -11,11 +11,28 @@
 #include <algorithm> // For std::all_of if used by clean_word indirectly
 
 // Project Headers - Ensure these are accessible from your include paths
-#include ".\\ERROR_Handler.h"
-#include ".\\FileHandler.h"
-#include ".\\Logger.h"
-#include ".\\Mapper_DLL_so.h"
-#include ".\\Reducer_DLL_so.h"
+#include "ERROR_Handler.h"
+#include "FileHandler.h"
+#include "Logger.h"
+#include "Mapper_DLL_so.h"
+#include "Reducer_DLL_so.h"
+
+
+#ifdef _WIN32
+    #include "..\include\ERROR_Handler.h"
+    #include "..\include\FileHandler.h"
+    #include "..\include\Logger.h"
+    #include "..\include\Mapper_DLL_so.h"
+    #include "..\include\Reducer_DLL_so.h"
+#elif defined(__unix__) || defined(__APPLE__) && defined(__MACH__)
+    #include "..\includeERROR_Handler.h"
+    #include "..\include\FileHandler.h"
+    #include "..\include\Logger.h"
+    #include "..\include\Mapper_DLL_so.h"
+    #include "..\include\Reducer_DLL_so.h"
+#else
+    #error "Unsupported operating system. Please check your platform."
+#endif
 
 namespace fs = std::filesystem;
 
