@@ -1,81 +1,94 @@
-#include "Reducer_DLL_so.h"
-#include "ThreadPool.h"
-#include "ErrorHandler.h"
+#include "ProcessOrchestrator.h"
 #include "Logger.h"
+#include "ErrorHandler.h"
+#include "ThreadPool.h"
 
-#include <mutex>
-#include <thread>
-#include <algorithm>
-#include <map>
 #include <vector>
-#include <string>
+#include <thread>
+#include <atomic>
+#include <mutex>
+#include <condition_variable>
 
-// Reduce method implementation
-void ReducerDLLso::reduce(
-    const std::vector<std::pair<std::string, int>>& mappedData,
-    std::map<std::string, int>& reducedData,
-    size_t minPoolThreadsConfig,
-    size_t maxPoolThreadsConfig) {
-    size_t actualMinThreads = minPoolThreadsConfig == 0 ? std::thread::hardware_concurrency() : minPoolThreadsConfig;
-    if (actualMinThreads == 0) actualMinThreads = FALLBACK_REDUCE_THREAD_COUNT;
+// Function to dynamically monitor mapper progress and start reducers
+bool ProcessOrchestratorDLL::runController(const std::string& executablePath,
+                                           const std::string& inputDir,
+                                           const std::string& outputDir,
+                                           const std::string& tempDir,
+                                           int numMappers,
+                                           int numReducers,
+                                           size_t mapperMinPoolThreads,
+                                           size_t mapperMaxPoolThreads,
+                                           size_t reducerMinPoolThreads,
+                                           size_t reducerMaxPoolThreads) {
+    Logger::getInstance().log("[CONTROLLER] Starting controller process...");
 
-    size_t actualMaxThreads = maxPoolThreadsConfig == 0 ? actualMinThreads : maxPoolThreadsConfig;
-    if (actualMaxThreads < actualMinThreads) actualMaxThreads = actualMinThreads;
+    // Step 1: Distribute input files among mappers
+    std::vector<std::vector<std::string>> mapperFileAssignments(numMappers);
+    if (!distributeInputFiles_impl(inputDir, numMappers, mapperFileAssignments)) {
+        Logger::getInstance().log("[CONTROLLER] Failed to distribute input files among mappers.");
+        return false;
+    }
 
-    Logger::getInstance().log("ReducerDLLso: Starting reduction. Pool: " +
-                              std::to_string(actualMinThreads) + "-" + std::to_string(actualMaxThreads) + " threads.");
+    // Step 2: Launch mappers and monitor their progress
+    std::vector<std::atomic<bool>> mapperCompletionFlags(numMappers);
+    std::fill(mapperCompletionFlags.begin(), mapperCompletionFlags.end(), false);
 
-    process_reduce_internal(mappedData, reducedData, actualMinThreads, actualMaxThreads);
+    std::mutex reducerStartMutex;
+    std::condition_variable reducerStartCV;
+    std::atomic<int> completedMappers(0);
 
-    Logger::getInstance().log("ReducerDLLso: Finished reduction.");
-}
-
-// Internal processing logic for reduce
-void ReducerDLLso::process_reduce_internal(
-    const std::vector<std::pair<std::string, int>>& mappedData,
-    std::map<std::string, int>& reducedData,
-    size_t minThreads,
-    size_t maxThreads) {
-    std::mutex reduce_mutex;
-    size_t chunkSize = calculate_dynamic_chunk_size(mappedData.size(), maxThreads);
-    ThreadPool pool(minThreads, maxThreads);
-
-    for (size_t i = 0; i < mappedData.size(); i += chunkSize) {
-        pool.enqueueTask([this, &mappedData, &reducedData, &reduce_mutex, i, chunkSize]() {
-            size_t startIdx = i;
-            size_t endIdx = std::min(startIdx + chunkSize, mappedData.size());
-            std::map<std::string, int> localReduceMap;
-
-            for (size_t j = startIdx; j < endIdx; ++j) {
-                localReduceMap[mappedData[j].first] += mappedData[j].second;
-            }
-
-            if (!localReduceMap.empty()) {
-                std::lock_guard<std::mutex> lock(reduce_mutex);
-                for (const auto& kv : localReduceMap) {
-                    reducedData[kv.first] += kv.second;
-                }
+    // Launch mappers
+    std::vector<std::thread> mapperThreads;
+    for (int i = 0; i < numMappers; ++i) {
+        mapperThreads.emplace_back([&, i]() {
+            Logger::getInstance().log("[CONTROLLER] Launching Mapper " + std::to_string(i));
+            if (launchMapperProcesses_impl(executablePath, tempDir, i, numReducers, mapperFileAssignments[i], mapperMinPoolThreads, mapperMaxPoolThreads)) {
+                mapperCompletionFlags[i] = true;
+                completedMappers.fetch_add(1);
+                reducerStartCV.notify_all();
+            } else {
+                Logger::getInstance().log("[CONTROLLER] Mapper " + std::to_string(i) + " failed.");
             }
         });
     }
-    pool.shutdown();
-}
 
-// Dynamic chunk size calculation
-size_t ReducerDLLso::calculate_dynamic_chunk_size(size_t totalSize, size_t guideMaxThreads) const {
-    size_t numEffectiveThreads = guideMaxThreads > 0 ? guideMaxThreads : std::thread::hardware_concurrency();
-    if (numEffectiveThreads == 0) numEffectiveThreads = FALLBACK_REDUCE_THREAD_COUNT;
+    // Step 3: Dynamically start reducers as mappers complete
+    std::vector<std::atomic<bool>> reducerCompletionFlags(numReducers);
+    std::fill(reducerCompletionFlags.begin(), reducerCompletionFlags.end(), false);
 
-    const size_t minChunkSize = 256;
-    const size_t maxChunksPerThreadFactor = 4;
-    const size_t maxTotalChunks = numEffectiveThreads * maxChunksPerThreadFactor;
+    std::vector<std::thread> reducerThreads;
+    for (int r = 0; r < numReducers; ++r) {
+        reducerThreads.emplace_back([&, r]() {
+            std::unique_lock<std::mutex> lock(reducerStartMutex);
+            reducerStartCV.wait(lock, [&]() {
+                // Start reducer only if its partition is ready (at least one mapper has completed)
+                for (int m = 0; m < numMappers; ++m) {
+                    if (mapperCompletionFlags[m]) return true;
+                }
+                return false;
+            });
 
-    if (totalSize == 0) return minChunkSize;
-
-    size_t chunkSize = totalSize / numEffectiveThreads;
-    if (numEffectiveThreads > 0 && totalSize / chunkSize > maxTotalChunks && maxTotalChunks > 0) {
-        chunkSize = totalSize / maxTotalChunks;
+            Logger::getInstance().log("[CONTROLLER] Launching Reducer " + std::to_string(r));
+            if (launchReducerProcesses_impl(executablePath, outputDir, tempDir, r, reducerMinPoolThreads, reducerMaxPoolThreads)) {
+                reducerCompletionFlags[r] = true;
+                Logger::getInstance().log("[CONTROLLER] Reducer " + std::to_string(r) + " completed successfully.");
+            } else {
+                Logger::getInstance().log("[CONTROLLER] Reducer " + std::to_string(r) + " failed.");
+            }
+        });
     }
 
-    return std::max(minChunkSize, chunkSize);
+    // Step 4: Wait for all mappers to complete
+    for (auto& thread : mapperThreads) {
+        if (thread.joinable()) thread.join();
+    }
+    Logger::getInstance().log("[CONTROLLER] All mappers have completed.");
+
+    // Step 5: Wait for all reducers to complete
+    for (auto& thread : reducerThreads) {
+        if (thread.joinable()) thread.join();
+    }
+    Logger::getInstance().log("[CONTROLLER] All reducers have completed.");
+
+    return true;
 }

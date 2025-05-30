@@ -1,14 +1,13 @@
 #include "Mapper_DLL_so.h"
+#include "Partitioner.h"
 #include "Logger.h"
 #include "ErrorHandler.h"
 
 #include <fstream>
 #include <sstream>
-#include <string>
 #include <vector>
-#include <utility>
-#include <algorithm>
-#include <cctype>
+#include <string>
+#include <unordered_map>
 
 Mapper::Mapper(Logger& loggerRef, ErrorHandler& errorHandlerRef)
     : logger(loggerRef), errorHandler(errorHandlerRef) {
@@ -32,29 +31,33 @@ void Mapper::map(const std::string& documentId, const std::string& line, std::ve
     }
 }
 
-bool Mapper::exportMappedData(const std::string& filePath, const std::vector<std::pair<std::string, int>>& mappedData) {
-    std::ofstream outFile(filePath, std::ios_base::app);
+bool Mapper::exportPartitionedData(const std::string& tempDir, const std::vector<std::pair<std::string, int>>& mappedData, int numReducers) {
+    Partitioner partitioner(numReducers);
+    std::unordered_map<int, std::ofstream> reducerFiles;
 
-    if (!outFile.is_open()) {
-        errorHandler.logError("Mapper: Could not open intermediate file for writing: " + filePath);
-        return false;
+    // Open a file for each reducer
+    for (int i = 0; i < numReducers; ++i) {
+        std::string filePath = tempDir + "/partition_" + std::to_string(i) + ".txt";
+        reducerFiles[i].open(filePath, std::ios::app);
+        if (!reducerFiles[i].is_open()) {
+            errorHandler.logError("Mapper: Could not open partition file for reducer " + std::to_string(i) + ": " + filePath);
+            return false;
+        }
     }
 
+    // Write data to the appropriate partition file
     for (const auto& pair : mappedData) {
-        outFile << "(\"" << pair.first << "\"," << pair.second << ")\n";
+        int bucket = partitioner.getReducerBucket(pair.first);
+        reducerFiles[bucket] << pair.first << "\t" << pair.second << "\n";
     }
 
-    if (outFile.bad()) {
-        errorHandler.logError("Mapper: Error occurred while writing to intermediate file: " + filePath);
+    // Close all files
+    for (auto& [_, outFile] : reducerFiles) {
         outFile.close();
-        return false;
-    }
-
-    outFile.close();
-
-    if (outFile.fail() && !outFile.eof()) {
-        errorHandler.logError("Mapper: Failed to properly close or write to intermediate file: " + filePath);
-        return false;
+        if (outFile.fail()) {
+            errorHandler.logError("Mapper: Failed to properly close partition file.");
+            return false;
+        }
     }
 
     return true;
