@@ -10,6 +10,12 @@
 
 class Logger {
 public:
+    enum class Level {
+        INFO,
+        DEBUG,
+        ERROR
+    };
+
     static Logger& getInstance() {
         static Logger instance; // Meyers' Singleton
         return instance;
@@ -29,8 +35,6 @@ public:
         if (!logFile_) {
             std::cerr << "[LOGGER_ERROR] Could not open log file for writing: " << path << std::endl;
         } else {
-            // Optionally log that the log file was configured
-            // log("Log file configured at: " + path); // careful with re-entrancy if called from here
             std::cout << "[LOGGER_INFO] Log file configured at: " << path << std::endl;
         }
     }
@@ -40,9 +44,10 @@ public:
         logPrefix_ = prefix;
     }
 
-    void log(const std::string& message) {
+    void log(const std::string& message, Level level = Level::INFO) {
         std::lock_guard<std::mutex> lock(mutex_);
-        std::string fullMessage = "[" + getTimestamp() + "] " + logPrefix_ + message;
+        std::string levelStr = getLevelString(level);
+        std::string fullMessage = "[" + getTimestamp() + "] [" + levelStr + "] " + logPrefix_ + message;
         
         if (logFile_.is_open()) {
             logFile_ << fullMessage << std::endl;
@@ -74,6 +79,15 @@ private:
 
         ss << std::put_time(&timeinfo, "%Y-%m-%d %H:%M:%S");
         return ss.str();
+    }
+
+    std::string getLevelString(Level level) {
+        switch (level) {
+            case Level::INFO: return "INFO";
+            case Level::DEBUG: return "DEBUG";
+            case Level::ERROR: return "ERROR";
+            default: return "UNKNOWN";
+        }
     }
 
     std::ofstream logFile_;

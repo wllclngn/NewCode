@@ -75,6 +75,8 @@ private:
                                      size_t minPoolThreads,
                                      size_t maxPoolThreads);
     bool performFinalAggregation_impl(const std::string& outputDir, int numReducers, const std::string& finalOutputFilename) const;
+
+    void runFinalReducer(const std::string& outputDir, const std::string& tempDir);
 };
 
 #endif // PROCESS_ORCHESTRATOR_DLL_H

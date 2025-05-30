@@ -4,7 +4,7 @@
 # These source files are expected to be in the 'src/' directory.
 # Add other .cpp files to DLL_SOURCE_FILES if they are part of the DLL's core logic
 # and not just header-only utilities included by Mapper.cpp or Reducer.cpp.
-DLL_SOURCE_FILES="src/Mapper.cpp src/Reducer.cpp"
+DLL_SOURCE_FILES="src/Mapper_DLL_so.cpp src/Reducerr_DLL_so.cpp"
 EXECUTABLE_SOURCE_FILES="src/main.cpp"
 
 OUTPUT_CONTROLLER_BINARY="mapreduce_controller"

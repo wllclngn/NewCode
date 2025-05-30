@@ -1,8 +1,16 @@
-#include "..\include\ProcessOrchestrator.h"
-#include "..\include\Logger.h"
-#include "..\include\ERROR_Handler.h"
-#include "..\include\ThreadPool.h"
-#include "..\include/ProcessOrchestrator.h"
+#ifdef _WIN32
+    #include "..\include\ProcessOrchestrator.h"
+    #include "..\include\Logger.h"
+    #include "..\include\ERROR_Handler.h"
+    #include "..\include\ThreadPool.h"
+#elif defined(__unix__) || defined(__APPLE__) && defined(__MACH__)
+    #include "../include/ProcessOrchestrator.h"
+    #include "../include/Logger.h"
+    #include "../include/ERROR_Handler.h"
+    #include "../include/ThreadPool.h"
+#else
+    #error "Unsupported operating system. Please utilize Windows, MacOS or any Linux distribution to operate this C++ program."
+#endif
 
 #include <fstream>
 #include <filesystem>
@@ -10,11 +18,9 @@
 #include <string>
 #include <vector>
 
-// Add namespaces if required
 namespace fs = std::filesystem;
 
 // Implementation of the ProcessOrchestratorDLL class
-
 void ProcessOrchestratorDLL::runFinalReducer(const std::string& outputDir, const std::string& tempDir) {
     Logger::getInstance().log("Starting final reduction...");
 
@@ -37,7 +43,7 @@ void ProcessOrchestratorDLL::runFinalReducer(const std::string& outputDir, const
     // Write final results to output directory
     std::ofstream outFile(outputDir + "/final_results.txt");
     if (!outFile.is_open()) {
-        Logger::getInstance().log("ERROR: Could not open final_results.txt for writing.", Logger::Level::ERROR);
+            Logger::getInstance().log("ERROR: Could not open final_results.txt for writing.", Logger::Level::ERROR);
         return;
     }
 
@@ -47,6 +53,3 @@ void ProcessOrchestratorDLL::runFinalReducer(const std::string& outputDir, const
 
     Logger::getInstance().log("Final reduction completed.");
 }
-
-// Placeholder for other ProcessOrchestratorDLL methods
-// Add additional methods or logic as needed for this class.

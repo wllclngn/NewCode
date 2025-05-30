@@ -1,50 +1,67 @@
-#pragma once
+#ifndef THREAD_POOL_H
+#define THREAD_POOL_H
 
-#include <functional>
 #include <vector>
 #include <queue>
 #include <thread>
 #include <mutex>
 #include <condition_variable>
+#include <functional>
+#include <atomic>
 
-// Abstract Base Class for ThreadPool
-class ThreadPoolBase {
+class ThreadPool {
 public:
-    virtual ~ThreadPoolBase() {}
-    virtual void enqueueTask(const std::function<void()>& task) = 0;
-    virtual void shutdown() = 0;
-    virtual size_t getActiveThreads() const = 0;
-    virtual size_t getTasksInQueue() const = 0;
-};
-
-// Concrete Implementation of ThreadPool
-class ThreadPool : public ThreadPoolBase {
-public:
+    // Constructor with minimum and maximum thread limits
     ThreadPool(size_t minThreads, size_t maxThreads);
+
+    // Destructor
     ~ThreadPool();
 
-    void enqueueTask(const std::function<void()>& task) override;
-    void shutdown() override;
+    // Enqueue a new task into the thread pool
+    void enqueueTask(const std::function<void()>& task);
 
-    size_t getActiveThreads() const override;
-    size_t getTasksInQueue() const override;
+    // Shutdown the thread pool and wait for all tasks to complete
+    void shutdown();
+
+    // Get the current number of active threads
+    size_t getActiveThreads() const;
+
+    // Get the current number of tasks in the queue
+    size_t getTasksInQueue() const;
 
 private:
-    void workerLoop();
+    // Add a new thread to the worker pool
     void addThread();
+
+    // Adjust the thread pool size dynamically based on workload
     void adjustThreadPoolSize();
 
-    std::vector<std::thread> workerThreads;
-    std::queue<std::function<void()>> taskQueue;
+    // Worker loop for threads
+    void workerLoop();
 
-    mutable std::mutex queueMutex;
-    mutable std::mutex threadsMutex;
-    std::condition_variable condition;
-
-    bool stopFlag;
-    bool shuttingDownFlag;
-
+    // Minimum and maximum number of threads allowed
     size_t minThreadsCount;
     size_t maxThreadsCount;
-    size_t activeThreadsCount;
+
+    // Worker threads
+    std::vector<std::thread> workerThreads;
+
+    // Task queue
+    std::queue<std::function<void()>> taskQueue;
+
+    // Mutexes for thread safety
+    std::mutex queueMutex;
+    std::mutex threadsMutex;
+
+    // Condition variable for task synchronization
+    std::condition_variable condition;
+
+    // Flags for stopping and shutting down the thread pool
+    std::atomic<bool> stopFlag;
+    std::atomic<bool> shuttingDownFlag;
+
+    // Counter for active threads
+    std::atomic<size_t> activeThreadsCount;
 };
+
+#endif // THREAD_POOL_H

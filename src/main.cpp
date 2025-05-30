@@ -1,3 +1,23 @@
+#ifdef _WIN32
+    #include "..\include\ERROR_Handler.h"
+    #include "..\include\FileHandler.h"
+    #include "..\include\Logger.h"
+    #include "..\include\Mapper_DLL_so.h"
+    #include "..\include\Reducer_DLL_so.h"
+    #include "..\include\ProcessOrchestrator.h"
+    #include "..\include\InteractiveMode.h"
+#elif defined(__unix__) || defined(__APPLE__) && defined(__MACH__)
+    #include "../include/ERROR_Handler.h"
+    #include "../include/FileHandler.h"
+    #include "../include/Logger.h"
+    #include "../include/Mapper_DLL_so.h"
+    #include "../include/Reducer_DLL_so.h"
+    #include "../include/ProcessOrchestrator.h"
+    #include "../include/InteractiveMode.h"
+#else
+    #error "Unsupported operating system. Please check your platform."
+#endif
+
 #include <iostream>
 #include <filesystem>
 #include <fstream>
@@ -10,14 +30,6 @@
 #include <string>
 #include <cstdlib>
 #include <stdexcept>
-
-#include "..\include\ERROR_Handler.h"
-#include "..\include\FileHandler.h"
-#include "..\include\Logger.h"
-#include "..\include\Mapper_DLL_so.h"
-#include "..\include\Reducer_DLL_so.h"
-#include "..\include\ProcessOrchestrator.h"
-#include "..\include\InteractiveMode.h"
 
 namespace fs = std::filesystem;
 
@@ -78,14 +90,18 @@ int main(int argc, char* argv[]) {
                             mapperThreads.emplace_back([&, i]() {
                                 // Simulate mapper logic here
                                 orchestrator.runMapper(tempDir, i, numReducers, {}, 2, 4);
-
-                                if (i == numMappers - 1) { // Signal reducers when the last mapper finishes
-                                    signalReducers(cvReducers, mtxReducers, mapperOutputsReady);
-                                }
                             });
                         }
 
-                        // Launch reducer threads concurrently
+                        // Wait for mappers to complete
+                        for (auto &t : mapperThreads) {
+                            t.join();
+                        }
+
+                        // Signal reducers once all mappers are complete
+                        signalReducers(cvReducers, mtxReducers, mapperOutputsReady);
+
+                        // Launch reducer threads after mappers are complete
                         std::vector<std::thread> reducerThreads;
                         for (int i = 0; i < numReducers; ++i) {
                             reducerThreads.emplace_back([&, i]() {
@@ -96,11 +112,6 @@ int main(int argc, char* argv[]) {
                                 // Simulate reducer logic here
                                 orchestrator.runReducer(outputDir, tempDir, i, 2, 4);
                             });
-                        }
-
-                        // Wait for mappers to complete
-                        for (auto &t : mapperThreads) {
-                            t.join();
                         }
 
                         // Wait for reducers to complete
