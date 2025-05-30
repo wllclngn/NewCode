@@ -4,6 +4,7 @@
 #include <fstream>
 #include <iostream>
 #include <filesystem>
+#include <map>
 #include "ERROR_Handler.h"
 #include "Logger.h"
 
