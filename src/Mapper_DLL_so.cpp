@@ -52,6 +52,27 @@ void Mapper::map(const std::string& documentId, const std::string& line, std::ve
     }
 }
 
+// Export mapped data to a file
+bool Mapper::exportMappedData(const std::string& filePath, const std::vector<std::pair<std::string, int>>& mappedData) {
+    std::ofstream outFile(filePath, std::ios::trunc);
+    if (!outFile.is_open()) {
+        errorHandler.reportError("Failed to open file for exporting mapped data: " + filePath, false);
+        return false;
+    }
+
+    for (const auto& pair : mappedData) {
+        outFile << pair.first << "\t" << pair.second << "\n";
+    }
+
+    outFile.close();
+    if (outFile.fail()) {
+        errorHandler.reportError("Failed to properly close file: " + filePath, false);
+        return false;
+    }
+
+    return true;
+}
+
 // Export partitioned data into temporary files for reducers
 bool Mapper::exportPartitionedData(const std::string& tempDir, const std::vector<std::pair<std::string, int>>& mappedData, int numReducers) {
     Partitioner partitioner(numReducers);
