@@ -18,7 +18,6 @@
 #include <string>
 #include <vector>
 
-// Add namespaces if required
 namespace fs = std::filesystem;
 
 // Implementation of the ProcessOrchestratorDLL class
@@ -45,7 +44,7 @@ void ProcessOrchestratorDLL::runFinalReducer(const std::string& outputDir, const
     // Write final results to output directory
     std::ofstream outFile(outputDir + "/final_results.txt");
     if (!outFile.is_open()) {
-        Logger::getInstance().log("ERROR: Could not open final_results.txt for writing.", Logger::Level::ERROR);
+            Logger::getInstance().log("ERROR: Could not open final_results.txt for writing.", Logger::Level::ERROR);
         return;
     }
 
@@ -55,6 +54,3 @@ void ProcessOrchestratorDLL::runFinalReducer(const std::string& outputDir, const
 
     Logger::getInstance().log("Final reduction completed.");
 }
-
-// Placeholder for other ProcessOrchestratorDLL methods
-// Add additional methods or logic as needed for this class.

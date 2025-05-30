@@ -12,7 +12,6 @@
     #error "Unsupported operating system. Please check your platform."
 #endif
 
-
 #include <mutex>
 #include <thread>
 #include <algorithm>
