@@ -80,11 +80,9 @@ $reducerSources = "$srcDir/Reducer_DLL_so.cpp"
 $outputBinary = "MapReduce.exe"
 $executableSources = @(
     "$srcDir/main.cpp",
-    "$srcDir/ProcessOrchestratorDLL.cpp",
-    "$srcDir/Logger.cpp",
-    "$srcDir/ErrorHandler.cpp",
-    "$srcDir/ThreadPool.cpp",
-    "$srcDir/FileHandler.cpp"
+    "$srcDir/ConfigureManager.cpp",
+    "$srcDir/ProcessOrchestrator.cpp",
+    "$srcDir/ThreadPool.cpp"
 )
 
 # Check for available build tools
