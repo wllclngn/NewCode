@@ -42,6 +42,16 @@ enum class AppMode {
     UNKNOWN
 };
 
+// New helper function to parse the mode string
+AppMode parseMode(const std::string& modeStr) {
+    if (modeStr == "controller") return AppMode::CONTROLLER;
+    if (modeStr == "mapper") return AppMode::MAPPER;
+    if (modeStr == "reducer") return AppMode::REDUCER;
+    if (modeStr == "final_reducer") return AppMode::FINAL_REDUCER;
+    if (modeStr == "interactive") return AppMode::INTERACTIVE;
+    return AppMode::UNKNOWN;
+}
+
 // Helper function to signal reducers when mapper outputs are ready
 void signalReducers(std::condition_variable &cv, std::mutex &mtx, bool &readyFlag) {
     {

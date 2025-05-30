@@ -11,14 +11,15 @@
 #include <algorithm> // For std::all_of if used by clean_word indirectly
 
 // Project Headers - Ensure these are accessible from your include paths
-#include ".\ERROR_Handler.h"
-#include ".\FileHandler.h"
-#include ".\Logger.h"
-#include ".\Mapper_DLL_so.h"
-#include ".\Reducer_DLL_so.h"
+#include ".\\ERROR_Handler.h"
+#include ".\\FileHandler.h"
+#include ".\\Logger.h"
+#include ".\\Mapper_DLL_so.h"
+#include ".\\Reducer_DLL_so.h"
 
 namespace fs = std::filesystem;
 
+// Helper function to replace std::string::ends_with
 inline bool ends_with(const std::string& str, const std::string& suffix) {
     return str.size() >= suffix.size() &&
            str.compare(str.size() - suffix.size(), suffix.size(), suffix) == 0;
@@ -27,7 +28,6 @@ inline bool ends_with(const std::string& str, const std::string& suffix) {
 // Function to encapsulate the original interactive mode logic
 // Returns 0 on success, non-zero on failure, similar to main's exit codes.
 int runInteractiveWorkflow() {
-    
     Logger::getInstance().configureLogFilePath("application.log"); 
     Logger::getInstance().setPrefix("[INTERACTIVE] "); 
     Logger::getInstance().log("WELCOME TO MAPREDUCE (Interactive Mode)...");
@@ -49,15 +49,14 @@ int runInteractiveWorkflow() {
         if (last_slash_pos != std::string::npos) { 
             blank_folder_path = folder_path.substr(0, last_slash_pos + 1);
         } else { 
-            blank_folder_path = "." ; 
+            blank_folder_path = "."; 
         }
-        os_slash_type = "/"; 
+        os_slash_type = "/";
     }
     // Ensure blank_folder_path ends with a slash if it's just "."
-    if (blank_folder_path == "." && !blank_folder_path.ends_with(os_slash_type)) {
+    if (blank_folder_path == "." && !ends_with(blank_folder_path, os_slash_type)) {
          blank_folder_path += os_slash_type;
     }
-
 
     // This call uses the original 4-argument validate_directory from your FileHandler.h
     // It populates input_file_paths_interactive
@@ -77,7 +76,6 @@ int runInteractiveWorkflow() {
     }
     if (output_folder_path.empty()) output_folder_path = default_output_path;
 
-
     std::string temp_folder_path;
     std::cout << "Enter the folder path for the temporary directory for intermediate files: ";
     std::getline(std::cin, temp_folder_path);
@@ -88,7 +86,6 @@ int runInteractiveWorkflow() {
         return 1; // Failure
     }
     if (temp_folder_path.empty()) temp_folder_path = default_temp_path;
-
 
     std::cout << "Input Folder: " << folder_path << std::endl;
     std::cout << "Output Folder: " << output_folder_path << std::endl;
@@ -101,15 +98,13 @@ int runInteractiveWorkflow() {
         FileHandler::read_file(file_path_from_interactive_input, extracted_lines);
     }
 
-    // MAP PHASE (Interactive - original logic)
-    // This uses the 2-argument map_words from your Mapper_DLL_so.h
+    // MAP PHASE
     std::string mapped_file_path = temp_folder_path + os_slash_type + "mapped_temp.txt";
     MapperDLLso mapper; 
     mapper.map_words(extracted_lines, mapped_file_path);
     Logger::getInstance().log("Interactive Mode: Map phase produced intermediate file: " + mapped_file_path);
 
-
-    // REDUCE PHASE (Interactive - original logic)
+    // REDUCE PHASE
     std::vector<std::pair<std::string, int>> mapped_data;
     if (!FileHandler::read_mapped_data(mapped_file_path, mapped_data)) {
         Logger::getInstance().log("ERROR: Failed to read mapped data from " + mapped_file_path + ". Exiting.\n");
