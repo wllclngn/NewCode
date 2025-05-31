@@ -18,6 +18,9 @@
 #include <string>
 #include <unordered_map>
 #include <algorithm>
+#include <filesystem> // Required for creating directories if tempDir doesn't exist
+
+namespace fs = std::filesystem;
 
 // Constructor for the Mapper class
 Mapper::Mapper(Logger& loggerRef, ErrorHandler& errorHandlerRef)
@@ -54,7 +57,19 @@ void Mapper::map(const std::string& documentId, const std::string& line, std::ve
 
 // Export mapped data to a file
 bool Mapper::exportMappedData(const std::string& filePath, const std::vector<std::pair<std::string, int>>& mappedData) {
-    std::ofstream outFile(filePath, std::ios::trunc);
+    // Ensure directory for filePath exists
+    fs::path p(filePath);
+    if (p.has_parent_path()) {
+        fs::path dir = p.parent_path();
+        if (!fs::exists(dir)) {
+            if (!fs::create_directories(dir)) {
+                errorHandler.reportError("Failed to create directory for exporting mapped data: " + dir.string(), false);
+                return false;
+            }
+        }
+    }
+
+    std::ofstream outFile(filePath, std::ios::trunc); // Changed to trunc to overwrite if file exists
     if (!outFile.is_open()) {
         errorHandler.reportError("Failed to open file for exporting mapped data: " + filePath, false);
         return false;
@@ -66,25 +81,49 @@ bool Mapper::exportMappedData(const std::string& filePath, const std::vector<std
 
     outFile.close();
     if (outFile.fail()) {
-        errorHandler.reportError("Failed to properly close file: " + filePath, false);
+        errorHandler.reportError("Failed to properly close file after writing mapped data: " + filePath, false);
         return false;
     }
-
+    logger.log("Successfully exported mapped data to: " + filePath);
     return true;
 }
 
 // Export partitioned data into temporary files for reducers
-bool Mapper::exportPartitionedData(const std::string& tempDir, const std::vector<std::pair<std::string, int>>& mappedData, int numReducers) {
+bool Mapper::exportPartitionedData(const std::string& tempDir, 
+                                   const std::vector<std::pair<std::string, int>>& mappedData, 
+                                   int numReducers,
+                                   const std::string& partitionFilePrefix,
+                                   const std::string& partitionFileSuffix) {
+    if (numReducers <= 0) {
+        errorHandler.reportError("Mapper: Number of reducers must be positive. Got: " + std::to_string(numReducers), true);
+        return false;
+    }
+    
+    // Ensure tempDir exists
+    if (!fs::exists(tempDir)) {
+        if (!fs::create_directories(tempDir)) {
+            errorHandler.reportError("Mapper: Could not create temporary directory: " + tempDir, false);
+            return false;
+        }
+    }
+
     Partitioner partitioner(numReducers);
-    std::unordered_map<int, std::ofstream> reducerFiles;
+    std::vector<std::ofstream> reducerFiles(numReducers); // Use vector instead of map for direct indexing
 
     // Open a file for each reducer
     for (int i = 0; i < numReducers; ++i) {
-        std::string filePath = tempDir + "/partition_" + std::to_string(i) + ".txt";
-        reducerFiles[i].open(filePath, std::ios::app);
+        // Use fs::path for robust path construction
+        fs::path partitionFilePath = fs::path(tempDir) / (partitionFilePrefix + std::to_string(i) + partitionFileSuffix);
+        reducerFiles[i].open(partitionFilePath, std::ios::app); // Open in append mode
 
         if (!reducerFiles[i].is_open()) {
-            errorHandler.reportError("Mapper: Could not open partition file for reducer " + std::to_string(i) + ": " + filePath, false);
+            errorHandler.reportError("Mapper: Could not open partition file " + partitionFilePath.string() + " for reducer " + std::to_string(i), false);
+            // Close already opened files before returning
+            for (int j = 0; j < i; ++j) {
+                if (reducerFiles[j].is_open()) {
+                    reducerFiles[j].close();
+                }
+            }
             return false;
         }
     }
@@ -92,17 +131,29 @@ bool Mapper::exportPartitionedData(const std::string& tempDir, const std::vector
     // Write mapped data to the appropriate partition file
     for (const auto& pair : mappedData) {
         int bucket = partitioner.getReducerBucket(pair.first);
-        reducerFiles[bucket] << pair.first << "\t" << pair.second << "\n";
-    }
-
-    // Close all files
-    for (auto& [_, outFile] : reducerFiles) {
-        outFile.close();
-        if (outFile.fail()) {
-            errorHandler.reportError("Mapper: Failed to properly close partition file.", false);
-            return false;
+        if (bucket >= 0 && bucket < numReducers) {
+            reducerFiles[bucket] << pair.first << "\t" << pair.second << "\n";
+        } else {
+            // This case should ideally not happen if Partitioner is correct
+            errorHandler.reportError("Mapper: Invalid bucket " + std::to_string(bucket) + " for key '" + pair.first + "'", false);
         }
     }
 
-    return true;
+    // Close all files
+    bool allClosedSuccessfully = true;
+    for (int i = 0; i < numReducers; ++i) {
+        if (reducerFiles[i].is_open()) {
+            reducerFiles[i].close();
+            if (reducerFiles[i].fail()) {
+                fs::path partitionFilePath = fs::path(tempDir) / (partitionFilePrefix + std::to_string(i) + partitionFileSuffix);
+                errorHandler.reportError("Mapper: Failed to properly close partition file: " + partitionFilePath.string(), false);
+                allClosedSuccessfully = false; 
+            }
+        }
+    }
+    
+    if(allClosedSuccessfully) {
+        logger.log("Successfully exported partitioned data to " + tempDir);
+    }
+    return allClosedSuccessfully;
 }
