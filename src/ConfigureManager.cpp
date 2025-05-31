@@ -1,6 +1,3 @@
-#include "..\include\ConfigureManager.h"
-#include "..\include\Logger.h"
-
 #ifdef _WIN32
     #include "..\include\ConfigureManager.h"
     #include "..\include\Logger.h"
