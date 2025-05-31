@@ -84,7 +84,7 @@ bool Mapper::exportPartitionedData(const std::string& tempDir, const std::vector
         reducerFiles[i].open(filePath, std::ios::app);
 
         if (!reducerFiles[i].is_open()) {
-            ErrorHandler::reportError("Mapper: Could not open partition file for reducer " + std::to_string(i) + ": " + filePath, false);
+            errorHandler.reportError("Mapper: Could not open partition file for reducer " + std::to_string(i) + ": " + filePath, false);
             return false;
         }
     }
@@ -99,7 +99,7 @@ bool Mapper::exportPartitionedData(const std::string& tempDir, const std::vector
     for (auto& [_, outFile] : reducerFiles) {
         outFile.close();
         if (outFile.fail()) {
-            ErrorHandler::reportError("Mapper: Failed to properly close partition file.", false);
+            errorHandler.reportError("Mapper: Failed to properly close partition file.", false);
             return false;
         }
     }
