@@ -16,7 +16,12 @@ public:
 
     void map(const std::string& documentId, const std::string& line, std::vector<std::pair<std::string, int>>& intermediateData);
 
-    bool exportPartitionedData(const std::string& tempDir, const std::vector<std::pair<std::string, int>>& mappedData, int numReducers);
+    // Updated to accept partition file prefix and suffix
+    bool exportPartitionedData(const std::string& tempDir, 
+                               const std::vector<std::pair<std::string, int>>& mappedData, 
+                               int numReducers,
+                               const std::string& partitionFilePrefix,
+                               const std::string& partitionFileSuffix);
 
     bool exportMappedData(const std::string& filePath, const std::vector<std::pair<std::string, int>>& mappedData);
 
