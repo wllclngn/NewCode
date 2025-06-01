@@ -44,8 +44,8 @@ This project showcases a modern implementation of the **MapReduce** programming 
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/wllclngn/NewCode.git
-cd NewCode
+git clone https://github.com/CSE687-SPRING-2025/MapReduce.git
+cd MapReduce
 ```
 
 ### Build Instructions
