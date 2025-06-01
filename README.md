@@ -143,30 +143,40 @@ The repository includes a `config.txt` file which outlines potential settings fo
 ## Project Structure (Illustrative)
 
 ```
-NewCode/
-├── src/                     # Or root for .cpp files if not in src
-│   ├── main.cpp
-│   ├── Mapper_DLL_so.cpp    # If implementation is separate
-│   ├── Reducer_DLL_so.cpp   # If implementation is separate
-│   └── ...
-├── include/                 # Or root for .h files
-│   ├── Mapper_DLL_so.h
-│   ├── Reducer_DLL_so.h
-│   ├── FileHandler.h
-│   ├── Logger.h
-│   ├── ErrorHandler.h
-│   ├── ThreadPool.h
-│   ├── ProcessOrchestrator.h # For multi-process logic
-│   └── InteractiveMode.h     # For interactive workflow
-├── tests/
-│   ├── ... (Test files)
-├── scripts/
-│   ├── go.sh
-│   ├── go.ps1
-│   └── ... (Test scripts)
+MapReduce/
+├── .gitignore
 ├── CHANGELOG.md
 ├── README.md
-└── CMakeLists.txt
+├── go.ps1
+├── go.sh
+├── TEST/
+│   ├── TEST_BASH_MapReduce.sh
+│   ├── TEST_Integration.cpp
+│   ├── TEST_Mapper_DLL_so.cpp
+│   ├── TEST_Test_Framework.h
+│   ├── TEST_mapper.cpp
+│   ├── TEST_performance.cpp
+├── include/
+    ├── ConfigureManager.h
+│   ├── ERROR_Handler.h
+│   ├── ExportDefinitions.h
+│   ├── FileHandler.h
+│   ├── InteractiveMode.h
+│   ├── Logger.h
+│   ├── Mapper_DLL_so.h
+│   ├── Partitioner.h
+    ├── ProcessOrchestrator.h
+    ├── Reducer_DLL_so.h
+│   └── ThreadPool.h
+├── inputFolder/
+│   └── Folder for storing *txt files to be processed.
+└── src/
+    ├── ConfigureManager.cpp
+    └── main.cpp
+    ├── Mapper_DLL_so.cpp
+    ├── ProcessOrchestrator.cpp
+    ├── Reducer_DLL_so.cpp
+    ├── ThreadPool.cpp
 ```
 
 ---
