@@ -1,0 +1,1 @@
+./MapReduce controller C:\Users\mod\Desktop\CSE687-DESKTOP-Project3\inputFolder C:\Users\mod\Desktop\CSE687-DESKTOP-Project3\outputFolder C:\Users\mod\Desktop\CSE687-DESKTOP-Project3\tempFolder 4 2 C:\Users\mod\Desktop\CSE687-DESKTOP-Project3\outputFolder\SUCCESS.txt C:\Users\mod\Desktop\CSE687-DESKTOP-Project3\FinalResults.txt partition_ _suffix
