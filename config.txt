@@ -1,9 +1,0 @@
-# Thread pool settings
-mapper_min_threads=2
-mapper_max_threads=4
-reducer_min_threads=1
-reducer_max_threads=3
-
-# File naming conventions
-intermediate_file_format=temp/partition_{mapper_id}_{reducer_id}.txt
-output_file_format=output/reducer_{reducer_id}.txt
