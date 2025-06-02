@@ -201,22 +201,138 @@ int main(int argc, char* argv[]) {
                         cmdModeSuccess = true;
                         break;
                     }
-                    case AppMode::MAPPER:
+                    case AppMode::MAPPER: {
                         logger.log("Running in MAPPER mode (invoked directly - usually by orchestrator).");
                         if (argc < 7) { 
-                             ErrorHandler::reportError("Mapper usage: <executable> mapper <tempDir> <mapperId> <R> <mapperLogPath> <inputFile1> [inputFile2 ...]", true);
+                            ErrorHandler::reportError("Mapper usage: <executable> mapper <tempDir> <mapperId> <R> [minThreads maxThreads] <mapperLogPath> <inputFile1> [inputFile2 ...]", true);
                         }
-                        // ... actual mapper execution logic ...
+
+                        std::string tempDir = argv[2];
+                        int mapperId = std::stoi(argv[3]);
+                        int numReducers = std::stoi(argv[4]);
+
+                        int argOffset = 0;
+                        size_t minThreads = std::thread::hardware_concurrency();
+                        size_t maxThreads = std::thread::hardware_concurrency();
+                        std::string logPath;
+                        int inputFilesStartIdx = 6;
+
+                        // Detect if thread pool arguments are present
+                        if (argc >= 9 && std::all_of(argv[5], argv[5]+strlen(argv[5]), ::isdigit) && std::all_of(argv[6], argv[6]+strlen(argv[6]), ::isdigit)) {
+                            minThreads = std::stoul(argv[5]);
+                            maxThreads = std::stoul(argv[6]);
+                            logPath = argv[7];
+                            inputFilesStartIdx = 8;
+                        } else {
+                            logPath = argv[5];
+                            inputFilesStartIdx = 6;
+                        }
+
+                        logger.configureLogFilePath(logPath);
+                        logger.setPrefix("[MAPPER] ");
+
+                        ErrorHandler errorHandler;
+
+                        Mapper mapper(logger, errorHandler);
+
+                        std::vector<std::pair<std::string, int>> mappedData;
+                        for (int i = inputFilesStartIdx; i < argc; ++i) {
+                            std::vector<std::string> lines;
+                            if (!FileHandler::read_file(argv[i], lines)) {
+                                logger.log("Failed to read input file: " + std::string(argv[i]), Logger::Level::ERROR);
+                                continue;
+                            }
+                            for (const auto& line : lines) {
+                                mapper.map(argv[i], line, mappedData);
+                            }
+                        }
+
+                        // Use partitioning
+                        std::string partitionPrefix = "partition_";
+                        std::string partitionSuffix = ".txt";
+                        if (!mapper.exportPartitionedData(tempDir, mappedData, numReducers, partitionPrefix, partitionSuffix)) {
+                            logger.log("Mapper failed to export partitioned data.", Logger::Level::ERROR);
+                            cmdModeSuccess = false;
+                            break;
+                        }
+
+                        logger.log("Mapper completed successfully. Partitioned data written to: " + tempDir);
                         cmdModeSuccess = true; 
                         break;
-                    case AppMode::REDUCER:
-                         logger.log("Running in REDUCER mode (invoked directly - usually by orchestrator).");
-                         if (argc < 6) { 
-                             ErrorHandler::reportError("Reducer usage: <executable> reducer <outputDir> <tempDir> <reducerId> <reducerLogPath>", true);
+                    }
+                    case AppMode::REDUCER: {
+                        logger.log("Running in REDUCER mode (invoked directly - usually by orchestrator).");
+                        if (argc < 6) { 
+                            ErrorHandler::reportError("Reducer usage: <executable> reducer <outputDir> <tempDir> <reducerId> [minThreads maxThreads] <reducerLogPath>", true);
                         }
-                        // ... actual reducer execution logic ...
+
+                        std::string outputDir = argv[2];
+                        std::string tempDir = argv[3];
+                        int reducerId = std::stoi(argv[4]);
+
+                        size_t minThreads = std::thread::hardware_concurrency();
+                        size_t maxThreads = std::thread::hardware_concurrency();
+                        std::string logPath;
+                        int logArgIdx = 5;
+
+                        // Detect if thread pool arguments are present
+                        if (argc >= 8 && std::all_of(argv[5], argv[5]+strlen(argv[5]), ::isdigit) && std::all_of(argv[6], argv[6]+strlen(argv[6]), ::isdigit)) {
+                            minThreads = std::stoul(argv[5]);
+                            maxThreads = std::stoul(argv[6]);
+                            logPath = argv[7];
+                            logArgIdx = 7;
+                        } else {
+                            logPath = argv[5];
+                            logArgIdx = 5;
+                        }
+
+                        logger.configureLogFilePath(logPath);
+                        logger.setPrefix("[REDUCER] ");
+
+                        ErrorHandler errorHandler;
+
+                        // Find all partition files for this reducer
+                        std::vector<std::string> partitionFiles;
+                        for (const auto& entry : fs::directory_iterator(tempDir)) {
+                            if (entry.is_regular_file()) {
+                                std::string fname = entry.path().filename().string();
+                                std::string expected = "partition_" + std::to_string(reducerId) + ".txt";
+                                if (fname == expected) {
+                                    partitionFiles.push_back(entry.path().string());
+                                }
+                            }
+                        }
+
+                        if (partitionFiles.empty()) {
+                            logger.log("No partition files found for reducer " + std::to_string(reducerId) + " in " + tempDir, Logger::Level::WARNING);
+                            cmdModeSuccess = true;
+                            break;
+                        }
+
+                        std::vector<std::pair<std::string, int>> allMappedData;
+                        for (const auto& file : partitionFiles) {
+                            std::vector<std::pair<std::string, int>> mappedData;
+                            FileHandler::read_mapped_data(file, mappedData);
+                            allMappedData.insert(allMappedData.end(), mappedData.begin(), mappedData.end());
+                        }
+
+                        std::map<std::string, int> reducedData;
+                        ReducerDLLso reducer;
+                        reducer.reduce(allMappedData, reducedData, minThreads, maxThreads);
+
+                        // Write output
+                        fs::create_directories(outputDir);
+                        std::string outputPath = (fs::path(outputDir) / ("reducer_" + std::to_string(reducerId) + ".txt")).string();
+                        if (!FileHandler::write_output(outputPath, reducedData)) {
+                            logger.log("Failed to write reducer output: " + outputPath, Logger::Level::ERROR);
+                            cmdModeSuccess = false;
+                            break;
+                        }
+
+                        logger.log("Reducer completed successfully. Output written to: " + outputPath);
                         cmdModeSuccess = true;
                         break;
+                    }
                     default: // Should not happen if parseMode is correct
                         logger.log("Unknown application mode determined internally. Defaulting to interactive.", Logger::Level::ERROR);
                         currentMode = AppMode::INTERACTIVE; // Fallback
