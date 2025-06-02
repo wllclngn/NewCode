@@ -10,9 +10,11 @@
 #include "Logger.h"
 
 namespace fs = std::filesystem;
-
 class FileHandler {
 public:
+    static std::ifstream ia;
+    static std::ofstream oor;
+
     static bool read_file(const std::string &filename, std::vector<std::string> &lines) {
         std::ifstream file(filename);
         if (!file) {

@@ -208,10 +208,8 @@ int main(int argc, char* argv[]) {
                         }
 
                         std::string tempDir = argv[2];
-                        int mapperId = std::stoi(argv[3]);
                         int numReducers = std::stoi(argv[4]);
 
-                        int argOffset = 0;
                         size_t minThreads = std::thread::hardware_concurrency();
                         size_t maxThreads = std::thread::hardware_concurrency();
                         std::string logPath;
@@ -288,8 +286,6 @@ int main(int argc, char* argv[]) {
 
                         logger.configureLogFilePath(logPath);
                         logger.setPrefix("[REDUCER] ");
-
-                        ErrorHandler errorHandler;
 
                         // Find all partition files for this reducer
                         std::vector<std::string> partitionFiles;
