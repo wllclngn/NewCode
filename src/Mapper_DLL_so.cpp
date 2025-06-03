@@ -36,6 +36,9 @@ Mapper::~Mapper() {
 // Perform the map operation on a single line of input
 void Mapper::map(const std::string& documentId, const std::string& line, std::vector<std::pair<std::string, int>>& intermediateData) {
     if (line.empty()) return;
+    
+    // Use documentId to avoid unused parameter warning
+    if(documentId.empty() && line.empty()) return;
 
     std::istringstream iss(line);
     std::string word;
@@ -45,8 +48,10 @@ void Mapper::map(const std::string& documentId, const std::string& line, std::ve
         word.erase(std::remove_if(word.begin(), word.end(), [](unsigned char c) {
             return std::ispunct(c);
         }), word.end());
-        std::transform(word.begin(), word.end(), word.begin(), [](unsigned char c) {
-            return std::tolower(c);
+        
+        // Fix for warning: conversion from int to char
+        std::transform(word.begin(), word.end(), word.begin(), [](unsigned char c) -> unsigned char {
+            return static_cast<unsigned char>(std::tolower(static_cast<unsigned int>(c)));
         });
 
         if (!word.empty()) {
@@ -90,10 +95,10 @@ bool Mapper::exportMappedData(const std::string& filePath, const std::vector<std
 
 // Export partitioned data into temporary files for reducers
 bool Mapper::exportPartitionedData(const std::string& tempDir, 
-                                   const std::vector<std::pair<std::string, int>>& mappedData, 
-                                   int numReducers,
-                                   const std::string& partitionFilePrefix,
-                                   const std::string& partitionFileSuffix) {
+                                  const std::vector<std::pair<std::string, int>>& mappedData, 
+                                  int numReducers,
+                                  const std::string& partitionFilePrefix,
+                                  const std::string& partitionFileSuffix) {
     if (numReducers <= 0) {
         errorHandler.reportError("Mapper: Number of reducers must be positive. Got: " + std::to_string(numReducers), true);
         return false;
