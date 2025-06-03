@@ -9,6 +9,11 @@ public:
     static constexpr size_t DEFAULT_MIN_THREADS = 0;
     static constexpr size_t DEFAULT_MAX_THREADS = 0;
 
+    // Function to start the orchestration process
+    void start(const std::string& tempDir,
+               size_t minPoolThreads = DEFAULT_MIN_THREADS,
+               size_t maxPoolThreads = DEFAULT_MAX_THREADS);
+
     // Function to run the final reducer
     void runFinalReducer(const std::string& outputDir, const std::string& tempDir);
 
