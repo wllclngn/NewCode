@@ -242,14 +242,15 @@ public:
                         try {
                             count = std::stoi(count_str);
                             if (!word.empty()) { // Ensure word is not empty after trimming
-                                //Logger::getInstance().log("Parsed entry: " + word + " -> " + std::to_string(count));
                                 mapped_data.emplace_back(word, count);
                             } else {
                                 Logger::getInstance().log("WARNING: Word became empty after trimming on line " + std::to_string(line_number) + ": " + line);
                             }
-                        } catch (const std::invalid_argument& ia) {
+                        } catch (const std::invalid_argument&) {
+                            // Removed variable 'ia' here
                             Logger::getInstance().log("WARNING: Invalid number format for count on line " + std::to_string(line_number) + " ('" + count_str + "'): " + line);
-                        } catch (const std::out_of_range& oor) {
+                        } catch (const std::out_of_range&) {
+                            // Removed variable 'oor' here
                             Logger::getInstance().log("WARNING: Count out of range on line " + std::to_string(line_number) + " ('" + count_str + "'): " + line);
                         }
                     } else {

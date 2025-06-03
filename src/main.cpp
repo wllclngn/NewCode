@@ -46,7 +46,9 @@ enum class AppMode {
 AppMode parseMode(const std::string& modeStr) {
     std::string lowerModeStr = modeStr;
     std::transform(lowerModeStr.begin(), lowerModeStr.end(), lowerModeStr.begin(),
-                   [](unsigned char c){ return std::tolower(c); }); 
+                [](unsigned char c) -> unsigned char { 
+                    return static_cast<unsigned char>(std::tolower(static_cast<unsigned int>(c))); 
+                });
     if (lowerModeStr == "controller") return AppMode::CONTROLLER;
     if (lowerModeStr == "mapper") return AppMode::MAPPER;
     if (lowerModeStr == "reducer") return AppMode::REDUCER;
