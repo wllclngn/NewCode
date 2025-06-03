@@ -8,7 +8,7 @@
 
 ##### LINUX:  #####
  
- ./MapReduce controller /home/*/CSE687-Project3/inputFolder /home/*/CSE687-Project3/outputFolder /home/*/CSE687-Project3/tempFolder 4 2 /home/*/CSE687-Project3/outputFolder/SUCCESS.txt /home/*/CSE687-Project3/outputFolder/FinalResults.txt partition_ _suffix
+./MapReduce controller /home/*/CSE687-Project3/inputFolder /home/*/CSE687-Project3/outputFolder /home/*/CSE687-Project3/tempFolder 4 2 /home/*/CSE687-Project3/outputFolder/SUCCESS.txt /home/*/CSE687-Project3/outputFolder/FinalResults.txt partition_ _suffix
 
 ./MapReduce mapper /home/*/CSE687-Project3/tempFolder 0 2 10 12 /home/*/CSE687-Project3/logs/mapper0.log /home/*/CSE687-Project3/Gutenberg-Project-Collected-Shakespeare.txt
 
