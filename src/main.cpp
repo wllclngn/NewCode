@@ -28,6 +28,7 @@
 #include <mutex>
 #include <condition_variable>
 #include <string>
+#include <cstring>
 #include <cstdlib>
 #include <stdexcept>
 #include <algorithm> 
