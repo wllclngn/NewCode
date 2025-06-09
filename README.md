@@ -2,7 +2,7 @@
 
 ## Overview
 
-This project showcases a modern implementation of the **MapReduce** programming model in C++. It is designed for scalable and efficient parallel processing of large datasets. The system can operate in both a single-process interactive mode and a multi-process mode for distributed computation.
+This project showcases a modern implementation of the **MapReduce** programming model in C++. It is designed for scalable and efficient parallel processing of large datasets by splitting the computations.
 
 ---
 
@@ -16,16 +16,14 @@ This project showcases a modern implementation of the **MapReduce** programming 
 
 ## Features
 
-- **Dual-Mode Operation**:
-    - **Interactive Mode**: Single-process execution for smaller datasets or testing.
-    - **Multi-Process Mode**: A controller process launches and manages separate mapper and reducer processes for distributed computation.
-- **Multi-threaded Processing**: Efficient parallelism within mappers and reducers using a configurable `ThreadPool`. Each pool's thread count can be defined by min/max values or defaults to system hardware concurrency.
-- **Dynamic Chunking**: Dynamically calculated chunk sizes for optimal memory usage and load balancing during mapping.
-- **Cross-Platform Compatibility**: Designed to work on Windows, Linux, and macOS, with platform-specific build scripts.
-- **Custom Logger**: Logs system events with timestamps and mode-specific prefixes.
+- **Multi-threaded Processing**: Efficient parallelism using `std::thread` and `std::mutex` for both mappers and reducers.
+- **Dynamic Chunking**: Dynamically calculated chunk sizes for optimal memory usage and load balancing.
+- **Cross-Platform Compatibility**: Works seamlessly on Windows, Linux, and macOS, with platform-specific scripts.
+- **Custom Logger**: Logs system events with timestamps.
 - **Centralized Error Handling**: A dedicated `ErrorHandler` class for consistent error management.
-- **Modular Design**: Code is organized into logical modules for orchestration, mapping (e.g., `Mapper_DLL_so`), reducing (e.g., `Reducer_DLL_so`), file handling, interactive flow, logging, and error management. This design enhances maintainability and is suitable for clear separation of concerns.
+- **Unit Testing**: A built-in testing framework and integration tests for ensuring code quality.
 - **Build Automation**: Cross-platform build scripts (`go.sh` and `go.ps1`) and CMake support.
+- **Performance Testing**: Includes performance benchmarks to measure the efficiency of the MapReduce pipeline.
 
 ---
 
@@ -44,8 +42,8 @@ This project showcases a modern implementation of the **MapReduce** programming 
 
 ### Clone the Repository
 ```bash
-git clone https://github.com/CSE687-SPRING-2025/MapReduce.git
-cd MapReduce
+git clone https://github.com/wllclngn/NewCode.git
+cd NewCode
 ```
 
 ### Build Instructions
@@ -55,14 +53,14 @@ cd MapReduce
    ```bash
    ./go.sh
    ```
-2. The executable (e.g., `mapreduce`) will be available in the `bin` or a similar build output directory.
+2. The executable will be available in the `bin` directory.
 
 #### Windows
 1. Open PowerShell and run:
    ```powershell
    ./go.ps1
    ```
-2. The executable (e.g., `mapreduce.exe`) will be available in the `bin` or a similar build output directory.
+2. The executable will be available in the `bin` directory.
 
 #### Manual Build (Optional)
 Use CMake for a manual build:
@@ -76,131 +74,116 @@ cmake --build .
 
 ## Usage
 
-The application can be run in several modes: interactive, controller, mapper, or reducer.
+### Input and Output
+- **Input**: A directory containing text files to process.
+- **Output**: Word count results generated in an output directory.
 
-### 1. Interactive Mode
-If no mode is specified, the application runs interactively, prompting for input, output, and temporary directories.
+### Command-Line Arguments
 ```bash
-./mapreduce
-# Follow on-screen prompts
+mapreduce <input_directory> <output_directory>
 ```
 
-### 2. Controller Mode
-Orchestrates the MapReduce job by launching mapper and reducer processes.
+### Example
 ```bash
-./mapreduce controller <inputDir> <outputDir> <tempDir> <M> <R> [<mapperMinPoolThreads> <mapperMaxPoolThreads> <reducerMinPoolThreads> <reducerMaxPoolThreads>] [<successFileName>] [<finalOutputName>] [<partitionPrefix>] [<partitionSuffix>] [controllerLogPath]
+./mapreduce input_files/ output_results/
 ```
-- `<inputDir>`: Directory containing input text files.
-- `<outputDir>`: Directory where final results will be stored.
-- `<tempDir>`: Directory for intermediate files.
-- `<M>`: Number of mapper processes to launch.
-- `<R>`: Number of reducer processes to launch.
-- `[<mapperMinPoolThreads>]` (Optional): Minimum threads for mapper thread pools. Defaults to hardware concurrency.
-- `[<mapperMaxPoolThreads>]` (Optional): Maximum threads for mapper thread pools. Defaults to hardware concurrency.
-- `[<reducerMinPoolThreads>]` (Optional): Minimum threads for reducer thread pools. Defaults to hardware concurrency.
-- `[<reducerMaxPoolThreads>]` (Optional): Maximum threads for reducer thread pools. Defaults to hardware concurrency.
-- `[<successFileName>]` (Optional): Name of the success indicator file created in the output directory upon job completion. Defaults to `SUCCESS.txt`.
-- `[<finalOutputName>]` (Optional): Name of the final aggregated output file. Defaults to `final_results.txt`.
-- `[<partitionPrefix>]` (Optional): Prefix for intermediate partition files created by mappers. Defaults to `partition_`.
-- `[<partitionSuffix>]` (Optional): Suffix for intermediate partition files (e.g., containing the extension). Defaults to `.txt`.
-- `[controllerLogPath]` (Optional): Path for the controller's log file. Defaults to `<outputDir>/controller.log`. (Note: Current `main.cpp` may hardcode a default log path like `MapReduce.log`; this CLI option reflects the intended design for custom controller logging).
-
-**Example (Controller):**
-```bash
-./mapreduce controller ./input_files ./output_results ./temp_intermediate 4 2 2 8 1 4 job_SUCCESS.txt aggregated_output.txt map_part_ _data.txt ./logs/controller_job.log
-```
-
-### 3. Mapper Mode (Typically launched by Controller)
-Processes input files and generates intermediate key-value pairs.
-```bash
-./mapreduce mapper <tempDir> <mapperId> <R> [<minPoolThreads> <maxPoolThreads>] <mapperLogPath> <inputFile1> [inputFile2 ...]
-```
-- `<tempDir>`: Temporary directory for partitioned intermediate output.
-- `<mapperId>`: Unique ID for this mapper instance.
-- `<R>`: Total number of reducers (for partitioning).
-- `[<minPoolThreads>]` (Optional): Minimum threads for this mapper's thread pool. Defaults to hardware concurrency if not specified by the controller launching it.
-- `[<maxPoolThreads>]` (Optional): Maximum threads for this mapper's thread pool. Defaults to hardware concurrency if not specified by the controller launching it.
-- `<mapperLogPath>`: Path for this mapper's log file.
-- `<inputFile1> ...`: Paths to input files assigned to this mapper.
-
-### 4. Reducer Mode (Typically launched by Controller)
-Collects and processes intermediate data for its assigned partition.
-```bash
-./mapreduce reducer <outputDir> <tempDir> <reducerId> [<minPoolThreads> <maxPoolThreads>] <reducerLogPath>
-```
-- `<outputDir>`: Directory to write the final output for this partition.
-- `<tempDir>`: Temporary directory containing intermediate mapper outputs.
-- `<reducerId>`: Unique ID for this reducer instance.
-- `[<minPoolThreads>]` (Optional): Minimum threads for this reducer's thread pool. Defaults to hardware concurrency if not specified by the controller launching it.
-- `[<maxPoolThreads>]` (Optional): Maximum threads for this reducer's thread pool. Defaults to hardware concurrency if not specified by the controller launching it.
-- `<reducerLogPath>`: Path for this reducer's log file.
-
-### Configuration File (`config.txt`)
-The repository includes a `config.txt` file which outlines potential settings for thread pools and file naming conventions. However, **this file is not currently used by the application for runtime configuration.** All operational parameters are managed via command-line arguments as described above.
 
 ---
 
-## Project Structure (Illustrative)
+## Project Structure
 
 ```
-MapReduce/
-├── .gitignore
+NewCode/
+├── src/
+│   ├── Mapper.cpp
+│   ├── Reducer.cpp
+│   ├── FileHandler.cpp
+│   ├── Logger.cpp
+│   ├── ErrorHandler.cpp
+│   └── main.cpp
+├── include/
+│   ├── Mapper.h
+│   ├── Reducer.h
+│   ├── FileHandler.h
+│   ├── Logger.h
+│   └── ErrorHandler.h
+├── tests/
+│   ├── TEST_mapper.cpp
+│   ├── TEST_reducer.cpp
+│   ├── TEST_integration.cpp
+│   ├── TEST_performance.cpp
+│   └── TEST_Test_Framework.h
+├── scripts/
+│   ├── go.sh
+│   ├── go.ps1
+│   ├── TEST_BASH_MapReduce.sh
+│   └── TEST_PowerShell_MapReduce.ps1
 ├── CHANGELOG.md
 ├── README.md
-├── go.ps1
-├── go.sh
-├── TEST/
-│   ├── TEST_BASH_MapReduce.sh
-│   ├── TEST_Integration.cpp
-│   ├── TEST_Mapper_DLL_so.cpp
-│   ├── TEST_Test_Framework.h
-│   ├── TEST_mapper.cpp
-│   ├── TEST_performance.cpp
-├── include/
-    ├── ConfigureManager.h
-│   ├── ERROR_Handler.h
-│   ├── ExportDefinitions.h
-│   ├── FileHandler.h
-│   ├── InteractiveMode.h
-│   ├── Logger.h
-│   ├── Mapper_DLL_so.h
-│   ├── Partitioner.h
-    ├── ProcessOrchestrator.h
-    ├── Reducer_DLL_so.h
-│   └── ThreadPool.h
-├── inputFolder/
-│   └── Folder for storing *txt files to be processed.
-└── src/
-    ├── ConfigureManager.cpp
-    └── main.cpp
-    ├── Mapper_DLL_so.cpp
-    ├── ProcessOrchestrator.cpp
-    ├── Reducer_DLL_so.cpp
-    ├── ThreadPool.cpp
+└── CMakeLists.txt
 ```
 
 ---
 
 ## Testing
 
-Run tests using the provided scripts in the `tests/` or `scripts/` directory. Ensure to test both interactive and controller-driven multi-process modes.
+### Running All Tests
+To execute all test cases:
+```bash
+cd tests
+./TEST_BASH_MapReduce.sh   # Linux/macOS
+./TEST_PowerShell_MapReduce.ps1   # Windows
+```
+
+### Adding New Tests
+1. Write test cases in the `tests/` directory.
+2. Include them in the build process via the `CMakeLists.txt` file.
 
 ---
 
 ## Future Features
 
-- Support for more complex data types.
-- Enhanced fault tolerance in multi-process mode.
-- Potential integration of `config.txt` for default settings.
+### Dynamic Thread Pool (Planned)
+Future versions plan to implement a dynamic thread pool for enhanced thread management.
+
+### Distributed Processing (Planned)
+Support for distributed processing using MPI or ZeroMQ is under consideration.
 
 ---
 
 ## License
 
-This project is licensed under the MIT License. See `LICENSE` (if available) for details.
+This project is licensed under the MIT License. See `LICENSE` for details.
 
 ---
 
 ## Changelog
 
 Refer to the `CHANGELOG.md` file for updates and changes to the project.
+
+---
+
+## Sample Input and Output
+
+### Input Files
+The program expects text files in the input directory. For example:
+```
+input_files/
+├── file1.txt
+├── file2.txt
+└── file3.txt
+```
+
+### Output Example
+The output files will be stored in the specified output directory. Example file:
+```
+output_results/
+└── word_counts.txt
+```
+
+Contents of `word_counts.txt`:
+```
+word1: 45
+word2: 30
+word3: 15
+```
