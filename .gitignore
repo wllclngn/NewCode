@@ -6,7 +6,6 @@
 *.lib
 *.exp
 *.obj
-*.txt
 *.exe
 
 # Ignore macOS dylib output files
