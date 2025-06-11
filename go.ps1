@@ -47,7 +47,7 @@ function Execute-Command {
 
 # Function to prompt the user for custom DLL files
 function Get-CustomDLLs {
-    $customCleanPaths = @() 
+    $customCleanPaths = @()
     $useCustomDLLs = Read-Host "Do you have custom DLL/LIB files to use (e.g., to replace project's default Mapper/Reducer DLLs)? (yes/no)"
     if ($useCustomDLLs -match '^(y|yes)$') {
         Write-Host "If you provide custom DLLs/LIBs, the script will attempt to use them " -ForegroundColor Yellow
@@ -58,13 +58,13 @@ function Get-CustomDLLs {
             if ([string]::IsNullOrWhiteSpace($userInput)) {
                 break
             }
-            $cleanPath = $userInput.Trim().Trim('"') 
+            $cleanPath = $userInput.Trim().Trim('"')
             if ([string]::IsNullOrWhiteSpace($cleanPath)) {
                 Write-Host "Empty path provided after trimming. Please try again or press Enter to finish." -ForegroundColor Yellow
                 continue
             }
-            if (Test-Path -Path $cleanPath -PathType Leaf) { 
-                $customCleanPaths += $cleanPath 
+            if (Test-Path -Path $cleanPath -PathType Leaf) {
+                $customCleanPaths += $cleanPath
             } else {
                 Write-Host "Invalid path or not a file: '$cleanPath' (original input: '$userInput'). Please try again." -ForegroundColor Red
             }
@@ -83,7 +83,7 @@ $selectedMSVCBatch = ""
 if (Test-Path $vcvarsPath) { $selectedMSVCBatch = $vcvarsPath }
 elseif (Test-Path $vcvarsPathX86) { $selectedMSVCBatch = $vcvarsPathX86 }
 
-$customUserCleanPathsArray = Get-CustomDLLs 
+$customUserCleanPathsArray = Get-CustomDLLs
 
 if ($customUserCleanPathsArray.Count -gt 0) {
     Write-Host "User provided the following library paths (these will be processed for linking):" -ForegroundColor Yellow
@@ -93,13 +93,13 @@ if ($customUserCleanPathsArray.Count -gt 0) {
     Write-Host "No custom libraries provided. Will compile project's default MapperLib.dll and ReducerLib.dll." -ForegroundColor Cyan
 }
 
-$projectIncludeDir = "include" 
-$libSearchPaths = @( 
+$projectIncludeDir = "include"
+$libSearchPaths = @(
     '"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.43.34808\lib\x64"',
     '"C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\ucrt\x64"',
     '"C:\Program Files (x86)\Windows Kits\10\Lib\10.0.22621.0\um\x64"'
 )
-$includeSearchPaths = @( 
+$includeSearchPaths = @(
     '"C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools\VC\Tools\MSVC\14.43.34808\include"',
     '"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\ucrt"',
     '"C:\Program Files (x86)\Windows Kits\10\Include\10.0.22621.0\um"',
@@ -117,9 +117,14 @@ $projectReducerLibFileGPP = "libReducerLib.dll.a"
 $outputBinary = "MapReduce.exe"
 $executableSources = @(
     "$srcDir/main.cpp",
-    "$srcDir/ConfigureManager.cpp", 
+    "$srcDir/ConfigureManager.cpp",
     "$srcDir/ProcessOrchestrator.cpp",
-    "$srcDir/ThreadPool.cpp"
+    "$srcDir/ThreadPool.cpp",
+    "$srcDir/controller.cpp",
+    "$srcDir/receiver.cpp",
+    "$srcDir/socket_client.cpp",
+    "$srcDir/transmitter.cpp",
+    "$srcDir/worker_stub.cpp"
 )
 
 $useMSVC = $false
@@ -157,7 +162,7 @@ if ($customUserCleanPathsArray.Count -eq 0) {
 Clean-File -FilePath $outputBinary
 Get-ChildItem -Path . -Include "*.obj", "*.o", "*.exp" -File -Recurse | Remove-Item -Force -ErrorAction SilentlyContinue
 
-if ($useCMake) { 
+if ($useCMake) {
     if (Test-Path "build") {
         Write-Host "Cleaning up previous CMake build directory..." -ForegroundColor Yellow
         Remove-Item -Recurse -Force "build" -ErrorAction SilentlyContinue
@@ -174,17 +179,17 @@ if ($useMSVC) {
     $msvcCommonCompileFlags = "/EHsc /std:c++17 /MT /nologo /W4"
     $msvcIncludeDirFlag = "/I`"$projectIncludeDir`" " + (($includeSearchPaths | ForEach-Object { "/I$_" }) -join " ")
     $msvcLibDirFlag = ($libSearchPaths | ForEach-Object { "/LIBPATH:$_" }) -join " "
-    $exportDefineMSVC = "/DDLL_so_EXPORTS" 
-    $msvcLinkerInputs = @() 
+    $exportDefineMSVC = "/DDLL_so_EXPORTS"
+    $msvcLinkerInputs = @()
 
     if ($customUserCleanPathsArray.Count -eq 0) {
         Write-Host "Compiling project's $outputMapperDLL..."
         $msvcMapperCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $exportDefineMSVC /LD $mapperSources /link /OUT:$outputMapperDLL /IMPLIB:$projectMapperLibFileMSVC $msvcLibDirFlag"
-        if ((Execute-Command-With-MSVCEnv -MSVCBatchFile $selectedMSVCBatch -Command $msvcMapperCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputMapperDLL. Exiting." -ForegroundColor Red; exit 1 }
+        if ((Execute-Command-With-MSVCEnv -MSVCBatchFile $selectedMSVCBatch -Command $msvcMapperCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputMapperDLL. Exiting." -ForegroundColor Red; exit 1 } # Added closing curly brace
         Write-Host "  - Project Mapper Library: .\$outputMapperDLL (Import: .\$projectMapperLibFileMSVC)" -ForegroundColor Cyan
         Write-Host "Compiling project's $outputReducerDLL..."
         $msvcReducerCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $exportDefineMSVC /LD $reducerSources /link /OUT:$outputReducerDLL /IMPLIB:$projectReducerLibFileMSVC $msvcLibDirFlag"
-        if ((Execute-Command-With-MSVCEnv -MSVCBatchFile $selectedMSVCBatch -Command $msvcReducerCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputReducerDLL. Exiting." -ForegroundColor Red; exit 1 }
+        if ((Execute-Command-With-MSVCEnv -MSVCBatchFile $selectedMSVCBatch -Command $msvcReducerCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputReducerDLL. Exiting." -ForegroundColor Red; exit 1 } # Added closing curly brace
         Write-Host "  - Project Reducer Library: .\$outputReducerDLL (Import: .\$projectReducerLibFileMSVC)" -ForegroundColor Cyan
         if ($projectMapperLibFileMSVC.Contains(" ")) { $msvcLinkerInputs += """$projectMapperLibFileMSVC""" } else { $msvcLinkerInputs += $projectMapperLibFileMSVC }
         if ($projectReducerLibFileMSVC.Contains(" ")) { $msvcLinkerInputs += """$projectReducerLibFileMSVC""" } else { $msvcLinkerInputs += $projectReducerLibFileMSVC }
@@ -192,8 +197,8 @@ if ($useMSVC) {
         Write-Host "Processing user-provided libraries for MSVC linking:" -ForegroundColor Cyan
         foreach ($cleanPath in $customUserCleanPathsArray) {
             $libPathToLink = $cleanPath
-            if ($cleanPath -match '\.dll$') { 
-                $libPathToLink = $cleanPath -replace '\.dll$', '.lib' 
+            if ($cleanPath -match '\.dll$') {
+                $libPathToLink = $cleanPath -replace '\.dll$', '.lib'
             }
             $quotedLibPath = if ($libPathToLink.Contains(" ")) { """$libPathToLink""" } else { $libPathToLink }
             $msvcLinkerInputs += $quotedLibPath
@@ -205,7 +210,7 @@ if ($useMSVC) {
     Write-Host "DEBUG [MSVC Pre-Link Check]: Verifying existence of linker inputs:" -ForegroundColor DarkYellow
     $allMSVCLinkerInputsExist = $true
     foreach ($linkerInput in $msvcLinkerInputs) {
-        $pathToCheck = $linkerInput.Trim('"') 
+        $pathToCheck = $linkerInput.Trim('"')
         if (-not (Test-Path -Path $pathToCheck -PathType Leaf)) {
             Write-Host "  [ERROR] Linker input NOT FOUND or NOT A FILE: '$pathToCheck' (command line arg: '$linkerInput')" -ForegroundColor Red
             $allMSVCLinkerInputsExist = $false
@@ -221,18 +226,18 @@ if ($useMSVC) {
     Write-Host "Compiling $outputBinary..."
     $sourcesString = $executableSources -join ' '
     $msvcBinaryCommand = "cl $msvcCommonCompileFlags $msvcIncludeDirFlag $sourcesString /Fe:$outputBinary /link $finalLinkLibsMSVCString $msvcLibDirFlag"
-    if ((Execute-Command-With-MSVCEnv -MSVCBatchFile $selectedMSVCBatch -Command $msvcBinaryCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputBinary. Exiting." -ForegroundColor Red; exit 1 }
+    if ((Execute-Command-With-MSVCEnv -MSVCBatchFile $selectedMSVCBatch -Command $msvcBinaryCommand) -ne 0) { Write-Host "ERROR: MSVC failed to compile $outputBinary. Exiting." -ForegroundColor Red; exit 1 } # Added closing curly brace
     Write-Host "  - Executable Binary: .\$outputBinary" -ForegroundColor Cyan
     Write-Host "Build completed successfully using MSVC!" -ForegroundColor Green
     exit 0
-}
+} # Added closing curly brace for "if ($useMSVC)"
 
 if ($useGpp) {
     Write-Host "Attempting to build with g++..." -ForegroundColor Cyan
     $gppCommonFlags = "-std=c++17 -Wall -Wextra -O2"
     $gppIncludeDirFlag = "-I`"$projectIncludeDir`" " + (($includeSearchPaths | ForEach-Object { "-I$_" }) -join " ")
-    $gppLibDirFlag = ($libSearchPaths | ForEach-Object { "-L$_" }) -join " " 
-    $exportDefineGPP = "-DDLL_so_EXPORTS" 
+    $gppLibDirFlag = ($libSearchPaths | ForEach-Object { "-L$_" }) -join " "
+    $exportDefineGPP = "-DDLL_so_EXPORTS"
     $gppLinkerInputs = @()
 
     if ($customUserCleanPathsArray.Count -eq 0) {
@@ -255,11 +260,11 @@ if ($useGpp) {
         }
     }
     $finalLinkLibsGPPString = $gppLinkerInputs -join " "
-    
+
     Write-Host "DEBUG [g++ Pre-Link Check]: Verifying existence of linker inputs:" -ForegroundColor DarkYellow
     $allGPPLLinkerInputsExist = $true
     foreach ($linkerInput in $gppLinkerInputs) {
-        $pathToCheck = $linkerInput.Trim('"') 
+        $pathToCheck = $linkerInput.Trim('"')
         if (-not (Test-Path -Path $pathToCheck -PathType Leaf)) {
             Write-Host "  [ERROR] Linker input NOT FOUND or NOT A FILE: '$pathToCheck' (command line arg: '$linkerInput')" -ForegroundColor Red
             $allGPPLLinkerInputsExist = $false
@@ -286,7 +291,7 @@ if ($useCMake) {
     if (-not (Test-Path "build")) { New-Item -ItemType Directory -Path "build" | Out-Null }
     $cmakeExtraArgs = ""
     if ($customUserCleanPathsArray.Count -gt 0) {
-        $cmakeUserLibList = $customUserCleanPathsArray -join ";" 
+        $cmakeUserLibList = $customUserCleanPathsArray -join ";"
         $cmakeExtraArgs = "-DCUSTOM_USER_LIBRARIES=""$cmakeUserLibList"""
         Write-Host "Passing to CMake: $cmakeExtraArgs" -ForegroundColor Yellow
         Write-Host "Ensure your CMakeLists.txt is configured to use CUSTOM_USER_LIBRARIES variable." -ForegroundColor Yellow
@@ -294,7 +299,7 @@ if ($useCMake) {
          Write-Host "No custom libraries provided to CMake. CMakeLists.txt should build default project libraries." -ForegroundColor Cyan
     }
     $cmakeGen = "cmake -S . -B build $cmakeExtraArgs"
-    $cmakeBuild = "cmake --build build" 
+    $cmakeBuild = "cmake --build build"
     if ((Execute-Command -Command $cmakeGen) -ne 0) { Write-Host "ERROR: CMake configuration failed. Exiting." -ForegroundColor Red; exit 1 }
     if ((Execute-Command -Command $cmakeBuild) -ne 0) { Write-Host "ERROR: CMake build failed. Exiting." -ForegroundColor Red; exit 1 }
     Write-Host "Build completed successfully using CMake!" -ForegroundColor Green
