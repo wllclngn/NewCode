@@ -1,3 +1,8 @@
+# Ignore compile files
+MapReduce
+controller
+worker_stub
+
 # Ignore all .so files
 *.so
 
@@ -13,9 +18,6 @@
 
 # Ignore all log files
 *.log
-
-# Ignore the "MapReduce" compile file
-MapReduce
 
 # Ignore specific folders
 tempFolder/
