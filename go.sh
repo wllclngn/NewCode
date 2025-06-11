@@ -19,12 +19,10 @@ REDUCER_SOURCES="$SRC_DIR/Reducer_DLL_so.cpp" # Corrected typo from Reducerr
 EXECUTABLE_SOURCES=(
     "$SRC_DIR/main.cpp"
     "$SRC_DIR/ConfigureManager.cpp"
-    "$SRC_DIR/ProcessOrchestrator.cpp"
-    "$SRC_DIR/ThreadPool.cpp"
     "$SRC_DIR/controller.cpp"
-    "$SRC_DIR/receiver.cpp"
+    "$SRC_DIR/ProcessOrchestrator.cpp"
     "$SRC_DIR/socket_client.cpp"
-    "$SRC_DIR/transmitter.cpp"
+    "$SRC_DIR/ThreadPool.cpp"
     "$SRC_DIR/worker_stub.cpp"
 )
 

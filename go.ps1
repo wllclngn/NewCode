@@ -118,12 +118,10 @@ $outputBinary = "MapReduce.exe"
 $executableSources = @(
     "$srcDir/main.cpp",
     "$srcDir/ConfigureManager.cpp",
-    "$srcDir/ProcessOrchestrator.cpp",
-    "$srcDir/ThreadPool.cpp",
     "$srcDir/controller.cpp",
-    "$srcDir/receiver.cpp",
+    "$srcDir/ProcessOrchestrator.cpp",
     "$srcDir/socket_client.cpp",
-    "$srcDir/transmitter.cpp",
+    "$srcDir/ThreadPool.cpp",
     "$srcDir/worker_stub.cpp"
 )
 
