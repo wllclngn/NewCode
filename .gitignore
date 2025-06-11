@@ -1,4 +1,4 @@
-# Ignore compile files
+# Ignore the "MapReduce" compile file
 MapReduce
 controller
 worker_stub
@@ -23,3 +23,4 @@ worker_stub
 tempFolder/
 interFolder/
 outputFolder/
+.vscode/

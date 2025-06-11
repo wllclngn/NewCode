@@ -13,3 +13,18 @@
 ./MapReduce mapper /home/*/CSE687-Project3/tempFolder 0 2 10 12 /home/*/CSE687-Project3/logs/mapper0.log /home/*/CSE687-Project3/Gutenberg-Project-Collected-Shakespeare.txt
 
 ./MapReduce reducer /home/*/CSE687-Project3/outputFolder /home/*/CSE687-Project3/tempFolder 0 2 8 /home/*/CSE687-Project3/logs/reducer0.log
+
+
+For Socket Solution
+adjust folder paths as needed.
+
+Open Terminal
+    run ./worker_stub 54000
+Split Terminal
+    run ./controller
+
+    mapper command line:
+    map ./tempFolder 1 2 2 8 ./logs/controller_job.log ./inputFolder/Cymbeline.txt
+
+    reducer command line:
+    reduce ./outputFolder ./tempFolder 1 2 8 ./logs/controller_job.log
